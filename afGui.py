@@ -59,12 +59,53 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.refreshJobTreeButton.clicked.connect(self.updateJobList)
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectJob)
         
+        self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
+        
         self.clearJobDetails()
         self.clearBlockDetails()
         
         self.mainWindow.show()
         self.app.exec_()
+    
+    def openJobMenu(self, position):
+        print("test")
+        menu = QtGui.QMenu()
         
+        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        
+        startJobAction = menu.addAction("Start")
+        startJobAction.triggered.connect(self.startJobActionEvent)
+        pauseJobAction = menu.addAction("Pause")
+        pauseJobAction.triggered.connect(self.pauseJobActionEvent)
+        stopJobAction = menu.addAction("Stop")
+        stopJobAction.triggered.connect(self.stopJobActionEvent)
+        deleteJobAction = menu.addAction("Delete")
+        deleteJobAction.triggered.connect(self.deleteJobActionEvent)
+        #imagesMenu = menu.addMenu("Images")
+        
+        menu.exec_(self.mainWindow.jobTree.mapToGlobal(position))
+    
+    def startJobActionEvent(self):
+        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        for jobItem in selectedJobItems:
+            self.cmd.setJobState(jobItem.jobId, "start")
+    
+    def pauseJobActionEvent(self):
+        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        for jobItem in selectedJobItems:
+            self.cmd.setJobState(jobItem.jobId, "pause")
+    
+    def stopJobActionEvent(self):
+        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        for jobItem in selectedJobItems:
+            self.cmd.setJobState(jobItem.jobId, "stop")
+    
+    def deleteJobActionEvent(self):
+        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        for jobItem in selectedJobItems:
+            jobId = jobItem.data(0, QtCore.Qt.UserRole)
+            self.cmd.deleteJobById(jobId)
+    
     class progressDelegate(QtWidgets.QStyledItemDelegate):
         def __init__(self, parent=None):
             super(afGui.progressDelegate, self).__init__(parent)
@@ -87,6 +128,7 @@ class afGui(QtWidgets.QMainWindow):
     class jobItem(QtWidgets.QTreeWidgetItem):
         def __init__(self, job):
             super(afGui.jobItem, self).__init__()
+            self.jobId = job['id']
             self.setText(0, "%s (%d)" % (job['name'], len(job['blocks'])))
             self.setText(1, job['user_name'])
             self.setText(2, job['state'])
@@ -149,7 +191,6 @@ class afGui(QtWidgets.QMainWindow):
                     blockItem = self.blockItem(block, job)
                     jobItem.addChild(blockItem)
                 self.mainWindow.jobTree.addTopLevelItem(jobItem)
-        
     
     def selectJob(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -184,7 +225,7 @@ class afGui(QtWidgets.QMainWindow):
         blockDetails = jobDetails['blocks'][blockNum]
         blockStatus = status(blockDetails['st'])
         self.mainWindow.blockNameValue.setText(blockDetails['name'])
-        self.mainWindow.blockStatusValue.setText(blockStatus.getText())
+        self.mainWindow.blockStatusValue.setText(blockDetails['state'])
         self.mainWindow.blockTasksValue.setText('')
         self.mainWindow.blockErrorsValue.setText('')
         self.mainWindow.blockDependMaskValue.setText('')
@@ -204,7 +245,7 @@ class afGui(QtWidgets.QMainWindow):
         jobStatus = status(jobDetails['st'])
         #pprint.pprint(jobDetails)
         self.mainWindow.jobNameValue.setText(jobDetails['name'])
-        self.mainWindow.jobStatusValue.setText(jobStatus.getText())
+        self.mainWindow.jobStatusValue.setText(jobDetails['state'])
         tasks = 0
         for block in jobDetails['blocks']:
             tasks += block['tasks_num']
@@ -216,4 +257,7 @@ class afGui(QtWidgets.QMainWindow):
         #print(jobDetails)
 
     
+        
+    
 afGui()
+
