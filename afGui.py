@@ -55,6 +55,8 @@ class afGui(QtWidgets.QMainWindow):
         self.cmd = af.Cmd()
         
         self.updateJobList()
+        self.mainWindow.jobTree.setColumnWidth(0, 200)
+        #self.mainWindow.jobTree.resizeColumnToContents(0)
         
         self.mainWindow.refreshJobTreeButton.clicked.connect(self.updateJobList)
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectJob)
@@ -128,10 +130,13 @@ class afGui(QtWidgets.QMainWindow):
     class jobItem(QtWidgets.QTreeWidgetItem):
         def __init__(self, job):
             super(afGui.jobItem, self).__init__()
+            self.projectName = job.get('project', '')
             self.jobId = job['id']
+            self.parentWidget = None
             self.setText(0, "%s (%d)" % (job['name'], len(job['blocks'])))
             self.setText(1, job['user_name'])
-            self.setText(2, job['state'])
+            self.setState(job['state'].strip())
+            self.setProgress(job.get('p_percentage', 0))
             
             dt = datetime.datetime.fromtimestamp(job['time_creation'])
             self.setText(8, dt.strftime("%Y-%m-%d %H:%M"))
@@ -167,7 +172,7 @@ class afGui(QtWidgets.QMainWindow):
             self.setText(0, block['name'])
             self.setText(1, job['user_name'])
             
-            self.setState(block['state'])
+            self.setState(block['state'].strip())
             self.setProgress(block.get('p_percentage', 0))
             
             self.setText(4, str(block['capacity']))
@@ -181,16 +186,27 @@ class afGui(QtWidgets.QMainWindow):
     def updateJobList(self):
         self.mainWindow.jobTree.clear()
         jobList = self.cmd.getJobList(True)
-        print("2")
-        pprint.pprint(jobList)
+        #pprint.pprint(jobList)
         for job in jobList:
-            if job['user_name'] != 'afadmin':
+            if job['user_name'] not in ['afadmin']:
+                blocksProgress = 0
+                for block in job['blocks']:
+                    blocksProgress += block['p_percentage']
+                job['p_percentage'] = blocksProgress/len(job['blocks'])
                 jobItem = self.jobItem(job)
                 #jobProgress = self.cmd.getJobProgress(job['id'], True)
                 for block in job['blocks']:
                     blockItem = self.blockItem(block, job)
                     jobItem.addChild(blockItem)
-                self.mainWindow.jobTree.addTopLevelItem(jobItem)
+                parentWidget = None
+                search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
+                if len(search) == 1:
+                    parentWidget = search[0]
+                else:
+                    parentWidget = QtWidgets.QTreeWidgetItem()
+                    parentWidget.setText(0, "Project: %s" % (jobItem.projectName))
+                    self.mainWindow.jobTree.addTopLevelItem(parentWidget)
+                parentWidget.addChild(jobItem)
     
     def selectJob(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -226,7 +242,7 @@ class afGui(QtWidgets.QMainWindow):
         blockStatus = status(blockDetails['st'])
         self.mainWindow.blockNameValue.setText(blockDetails['name'])
         self.mainWindow.blockStatusValue.setText(blockDetails['state'])
-        self.mainWindow.blockTasksValue.setText('')
+        self.mainWindow.blockTasksValue.setText(str(blockDetails['tasks_num']))
         self.mainWindow.blockErrorsValue.setText('')
         self.mainWindow.blockDependMaskValue.setText('')
         self.mainWindow.blockProgressValue.setValue(blockDetails.get('p_percentage', 0))
