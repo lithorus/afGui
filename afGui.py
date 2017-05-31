@@ -2,6 +2,7 @@
 
 import os, sys, datetime
 import pprint
+import threading, time
 
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 
@@ -15,6 +16,31 @@ sys.path.append(os.path.join(cgruPath, 'lib', 'python'))
 sys.path.append(os.path.join(cgruPath, 'afanasy', 'python'))
 
 import af
+
+cmd = af.Cmd()
+#print(cmd.monitorGet())
+#monitorId = cmd.monitorRegister()
+#cmd.monitorSubscribe(monitorId, "jobs")
+#print(cmd.monitorEvents(monitorId))
+#print(cmd.monitorUnregister(monitorId))
+#print(cmd.monitorGet())
+
+class backgroundUpdate(object):
+    def __init__(self, interval=2):
+        print("test")
+        self.interval = interval
+        self.monitorId = cmd.monitorRegister()
+        cmd.monitorSubscribe(self.monitorId, "jobs")
+
+        thread = threading.Thread(target=self.run, args=())
+        thread.daemon = True
+        thread.start()
+    def run(self):
+        while True:
+            print(cmd.monitorEvents(self.monitorId))
+            time.sleep(self.interval)
+
+background = backgroundUpdate()
 
 class status:
     """Missing DocString
@@ -49,11 +75,14 @@ class status:
 class afGui(QtWidgets.QMainWindow):
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
+        
         self.mainWindow = load_ui(fname="afGui.ui")
+        self.mainWindow.setWindowIcon(QtGui.QIcon('afanasy.png'))
         self.mainWindow.jobTree.setItemDelegate(self.progressDelegate())
         
         self.cmd = af.Cmd()
-        
+        self.mainWindow.jobTree.clear()
+        self.jobList = {}
         self.updateJobList()
         self.mainWindow.jobTree.setColumnWidth(0, 200)
         #self.mainWindow.jobTree.resizeColumnToContents(0)
@@ -70,7 +99,6 @@ class afGui(QtWidgets.QMainWindow):
         self.app.exec_()
     
     def openJobMenu(self, position):
-        print("test")
         menu = QtGui.QMenu()
         
         selectedJobItems = self.mainWindow.jobTree.selectedItems()
@@ -107,6 +135,7 @@ class afGui(QtWidgets.QMainWindow):
         for jobItem in selectedJobItems:
             jobId = jobItem.data(0, QtCore.Qt.UserRole)
             self.cmd.deleteJobById(jobId)
+            jobItem.parent().removeChild(jobItem)
     
     class progressDelegate(QtWidgets.QStyledItemDelegate):
         def __init__(self, parent=None):
@@ -143,7 +172,6 @@ class afGui(QtWidgets.QMainWindow):
             
             self.setTimeStarted(job.get('time_started', None))
             self.setTimeDone(job.get('time_done', None))
-            
             self.setData(0, QtCore.Qt.UserRole, job['id'])
         
         def setProgress(self, progress):
@@ -184,29 +212,60 @@ class afGui(QtWidgets.QMainWindow):
             #blockProgress = jobProgress['progress'][block['block_num']]
     
     def updateJobList(self):
-        self.mainWindow.jobTree.clear()
-        jobList = self.cmd.getJobList(True)
+        newJobList = self.cmd.getJobList(True)
+        print(self.jobList)
+        '''
+        projectCount = self.mainWindow.jobTree.topLevelItemCount()
+        
+        print(projectCount)
+        
+        for i in range(0, projectCount):
+            projectItem = self.mainWindow.jobTree.topLevelItem(i)
+            jobCount = projectItem.childCount()
+            for x in range(0, jobCount):
+                jobItem = projectItem.child(x)
+                jobId = jobItem.data(0, QtCore.Qt.UserRole)
+                
+                print(jobItem)
+        '''
+        #self.mainWindow.jobTree.clear() # Needs to be removed
         #pprint.pprint(jobList)
-        for job in jobList:
+        for job in newJobList:
             if job['user_name'] not in ['afadmin']:
                 blocksProgress = 0
                 for block in job['blocks']:
                     blocksProgress += block['p_percentage']
                 job['p_percentage'] = blocksProgress/len(job['blocks'])
                 jobItem = self.jobItem(job)
+                oldJob = self.jobList.get(job['id'])
                 #jobProgress = self.cmd.getJobProgress(job['id'], True)
                 for block in job['blocks']:
                     blockItem = self.blockItem(block, job)
                     jobItem.addChild(blockItem)
-                parentWidget = None
+                projectWidget = None
+                isExpanded = False
+                isSelected = False
+                if oldJob:
+                    projectWidget = oldJob.parent()
+                    isExpanded = oldJob.isExpanded()
+                    isSelected = oldJob.isSelected()
+                    if isSelected == True:
+                        self.mainWindow.jobTree.selectionModel().clear()
+                    projectWidget.removeChild(oldJob)
+                    print(isExpanded)
                 search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
                 if len(search) == 1:
-                    parentWidget = search[0]
+                    projectWidget = search[0]
                 else:
-                    parentWidget = QtWidgets.QTreeWidgetItem()
-                    parentWidget.setText(0, "Project: %s" % (jobItem.projectName))
-                    self.mainWindow.jobTree.addTopLevelItem(parentWidget)
-                parentWidget.addChild(jobItem)
+                    projectWidget = QtWidgets.QTreeWidgetItem()
+                    projectWidget.setText(0, "Project: %s" % (jobItem.projectName))
+                    projectWidget.setData(0, QtCore.Qt.UserRole, jobItem.projectName)
+                    self.mainWindow.jobTree.addTopLevelItem(projectWidget)
+                projectWidget.addChild(jobItem)
+                jobItem.setExpanded(isExpanded)
+                jobItem.setSelected(isSelected)
+                self.jobList[job['id']] = jobItem
+        
     
     def selectJob(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -219,10 +278,10 @@ class afGui(QtWidgets.QMainWindow):
                 jobItem = selectedItem.parent()
                 jobId = jobItem.data(0, QtCore.Qt.UserRole)
                 blockNum = selectedItem.data(1, QtCore.Qt.UserRole)
-                self.updateJobInfo(jobId)
+                self.updateJobDetails(jobId)
                 self.updateBlockDetails(jobId, blockNum)
             else:
-                self.updateJobInfo(jobId)
+                self.updateJobDetails(jobId)
                 self.clearBlockDetails()
         else:
             self.clearJobDetails()
@@ -256,7 +315,7 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobMaximumRunningValue.setText('')
         self.mainWindow.jobMaximumRunningPerHostValue.setText('')
     
-    def updateJobInfo(self, jobId):
+    def updateJobDetails(self, jobId):
         jobDetails = self.cmd.getJobInfo(jobId, True)[0]
         jobStatus = status(jobDetails['st'])
         #pprint.pprint(jobDetails)
@@ -271,9 +330,6 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobMaximumRunningValue.setText("%d" % jobDetails.get('max_running_tasks', -1))
         self.mainWindow.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
         #print(jobDetails)
-
-    
-        
     
 afGui()
 
