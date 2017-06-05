@@ -4,6 +4,7 @@ import os, sys, datetime
 import pprint
 import threading, time
 
+
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 
 from Qt import QtWidgets, QtCore, QtGui, load_ui  # @UnresolvedImport
@@ -25,22 +26,6 @@ cmd = af.Cmd()
 #print(cmd.monitorUnregister(monitorId))
 #print(cmd.monitorGet())
 
-class backgroundUpdate(object):
-    def __init__(self, interval=2):
-        print("test")
-        self.interval = interval
-        self.monitorId = cmd.monitorRegister()
-        cmd.monitorSubscribe(self.monitorId, "jobs")
-
-        thread = threading.Thread(target=self.run, args=())
-        thread.daemon = True
-        thread.start()
-    def run(self):
-        while True:
-            print(cmd.monitorEvents(self.monitorId))
-            time.sleep(self.interval)
-
-background = backgroundUpdate()
 
 class status:
     """Missing DocString
@@ -72,6 +57,30 @@ class status:
         return bool(self.st & 512)
 
 
+
+class backgroundUpdate(QtCore.QThread):
+    jobsUpdated = QtCore.Signal(object)
+    def __init__(self, interval=2):
+        QtCore.QThread.__init__(self)
+        self.interval = interval
+        self.monitorId = cmd.monitorRegister()
+        cmd.monitorSubscribe(self.monitorId, "jobs")
+        #thread = threading.Thread(target=self.run, args=())
+        #thread.daemon = True
+        #thread.start()
+
+    def run(self):
+        while True:
+            result = cmd.monitorEvents(self.monitorId)
+            events = result.get("events")
+            if events is not None:
+                jobsChanged = events.get("jobs_change")
+                if jobsChanged is not None:
+                    self.jobsUpdated.emit(jobsChanged)
+                    #self.main.updateJobList(jobsChanged)
+                    
+            self.sleep(self.interval)
+
 class afGui(QtWidgets.QMainWindow):
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
@@ -87,7 +96,7 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.setColumnWidth(0, 200)
         #self.mainWindow.jobTree.resizeColumnToContents(0)
         
-        self.mainWindow.refreshJobTreeButton.clicked.connect(self.updateJobList)
+        self.mainWindow.refreshJobTreeButton.clicked.connect(self.refreshButton)
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectJob)
         
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
@@ -96,8 +105,14 @@ class afGui(QtWidgets.QMainWindow):
         self.clearBlockDetails()
         
         self.mainWindow.show()
+        self.threads = []
+        refresher = backgroundUpdate()
+        refresher.jobsUpdated.connect(self.updateJobList)
+        self.threads.append(refresher)
+        refresher.start()
+        
         self.app.exec_()
-    
+        
     def openJobMenu(self, position):
         menu = QtGui.QMenu()
         
@@ -211,9 +226,12 @@ class afGui(QtWidgets.QMainWindow):
             self.setData(1, QtCore.Qt.UserRole, block['block_num'])
             #blockProgress = jobProgress['progress'][block['block_num']]
     
-    def updateJobList(self):
-        newJobList = self.cmd.getJobList(True)
-        print(self.jobList)
+    def refreshButton(self):
+        print("Refresh")
+        
+    def updateJobList(self, ids=None):
+        newJobList = self.cmd.getJobList(True, ids)
+        #print(self.jobList)
         '''
         projectCount = self.mainWindow.jobTree.topLevelItemCount()
         
@@ -234,7 +252,8 @@ class afGui(QtWidgets.QMainWindow):
             if job['user_name'] not in ['afadmin']:
                 blocksProgress = 0
                 for block in job['blocks']:
-                    blocksProgress += block['p_percentage']
+                    print(block)
+                    blocksProgress += block.get('p_percentage', 0)
                 job['p_percentage'] = blocksProgress/len(job['blocks'])
                 jobItem = self.jobItem(job)
                 oldJob = self.jobList.get(job['id'])
@@ -252,7 +271,6 @@ class afGui(QtWidgets.QMainWindow):
                     if isSelected == True:
                         self.mainWindow.jobTree.selectionModel().clear()
                     projectWidget.removeChild(oldJob)
-                    print(isExpanded)
                 search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
                 if len(search) == 1:
                     projectWidget = search[0]
