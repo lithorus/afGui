@@ -47,7 +47,7 @@ QGroupBox::title {
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="jobsTab">
        <attribute name="title">
@@ -456,10 +456,20 @@ QGroupBox::title {
        </attribute>
        <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QTreeWidget" name="treeWidget">
+         <widget class="QTreeWidget" name="rendersTree">
           <column>
            <property name="text">
             <string>Name</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>State</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Capacity</string>
            </property>
           </column>
           <column>
@@ -492,9 +502,25 @@ QGroupBox::title {
             <string>OS</string>
            </property>
           </column>
+          <column>
+           <property name="text">
+            <string>User</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>Priority</string>
+           </property>
+          </column>
           <item>
            <property name="text">
             <string>render001</string>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="text">
+            <string/>
            </property>
            <property name="text">
             <string>40</string>
@@ -504,6 +530,9 @@ QGroupBox::title {
            </property>
            <property name="text">
             <string>64GB</string>
+           </property>
+           <property name="text">
+            <string/>
            </property>
            <property name="text">
             <string/>

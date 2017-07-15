@@ -2,30 +2,21 @@
 
 import os, sys, datetime
 import pprint
-import threading, time
-
 
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 
 from Qt import QtWidgets, QtCore, QtGui, load_ui  # @UnresolvedImport
 
-cgruPath = '/opt/projects/cgru'
+#cgruPath = '/opt/projects/cgru'
 
-os.environ['CGRU_LOCATION'] = cgruPath
+#os.environ['CGRU_LOCATION'] = cgruPath
 
-sys.path.append(os.path.join(cgruPath, 'lib', 'python'))
-sys.path.append(os.path.join(cgruPath, 'afanasy', 'python'))
+#sys.path.append(os.path.join(cgruPath, 'lib', 'python'))
+#sys.path.append(os.path.join(cgruPath, 'afanasy', 'python'))
 
 import af
 
 cmd = af.Cmd()
-#print(cmd.monitorGet())
-#monitorId = cmd.monitorRegister()
-#cmd.monitorSubscribe(monitorId, "jobs")
-#print(cmd.monitorEvents(monitorId))
-#print(cmd.monitorUnregister(monitorId))
-#print(cmd.monitorGet())
-
 
 class status:
     """Missing DocString
@@ -65,20 +56,17 @@ class backgroundUpdate(QtCore.QThread):
         self.interval = interval
         self.monitorId = cmd.monitorRegister()
         cmd.monitorSubscribe(self.monitorId, "jobs")
-        #thread = threading.Thread(target=self.run, args=())
-        #thread.daemon = True
-        #thread.start()
+        cmd.monitorSubscribe(self.monitorId, "renders")
 
     def run(self):
         while True:
             result = cmd.monitorEvents(self.monitorId)
             events = result.get("events")
             if events is not None:
+                print(events)
                 jobsChanged = events.get("jobs_change")
                 if jobsChanged is not None:
                     self.jobsUpdated.emit(jobsChanged)
-                    #self.main.updateJobList(jobsChanged)
-                    
             self.sleep(self.interval)
 
 class afGui(QtWidgets.QMainWindow):
@@ -100,6 +88,9 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectJob)
         
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
+        
+        self.renderList = {}
+        self.updateRendersList()
         
         self.clearJobDetails()
         self.clearBlockDetails()
@@ -226,33 +217,25 @@ class afGui(QtWidgets.QMainWindow):
             self.setData(1, QtCore.Qt.UserRole, block['block_num'])
             #blockProgress = jobProgress['progress'][block['block_num']]
     
+    class renderWidget(QtGui.QTreeWidgetItem):
+        def __init__(self):
+            super(afGui.renderWidget, self).__init__()
+            pass
+    
     def refreshButton(self):
+        self.updateJobList()
         print("Refresh")
         
     def updateJobList(self, ids=None):
+        if ids is None:
+            self.jobList = {}
+            self.mainWindow.jobTree.clear()
         newJobList = self.cmd.getJobList(True, ids)
-        #print(self.jobList)
-        '''
-        projectCount = self.mainWindow.jobTree.topLevelItemCount()
         
-        print(projectCount)
-        
-        for i in range(0, projectCount):
-            projectItem = self.mainWindow.jobTree.topLevelItem(i)
-            jobCount = projectItem.childCount()
-            for x in range(0, jobCount):
-                jobItem = projectItem.child(x)
-                jobId = jobItem.data(0, QtCore.Qt.UserRole)
-                
-                print(jobItem)
-        '''
-        #self.mainWindow.jobTree.clear() # Needs to be removed
-        #pprint.pprint(jobList)
         for job in newJobList:
             if job['user_name'] not in ['afadmin']:
                 blocksProgress = 0
                 for block in job['blocks']:
-                    print(block)
                     blocksProgress += block.get('p_percentage', 0)
                 job['p_percentage'] = blocksProgress/len(job['blocks'])
                 jobItem = self.jobItem(job)
@@ -283,7 +266,6 @@ class afGui(QtWidgets.QMainWindow):
                 jobItem.setExpanded(isExpanded)
                 jobItem.setSelected(isSelected)
                 self.jobList[job['id']] = jobItem
-        
     
     def selectJob(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -348,6 +330,20 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobMaximumRunningValue.setText("%d" % jobDetails.get('max_running_tasks', -1))
         self.mainWindow.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
         #print(jobDetails)
+    
+    def updateRendersList(self, rid=None):
+        self.mainWindow.rendersTree.clear()
+        rendersList = cmd.renderGetList()
+        print(cmd.renderGetId(rid))
+        print(cmd.renderGetId(rid, "resources"))
+        for render in rendersList:
+            renderItem = self.renderList.get(render['id'], self.renderWidget())
+            renderItem.setText(0, render['name'])
+            renderItem.setText(1, render['state'])
+            renderItem.setText(2, "%d/%d" % (render['capacity_used'], render['host']['capacity']))
+            self.renderList[render['id']] = renderItem
+            self.mainWindow.rendersTree.addTopLevelItem(renderItem)
+        pass
     
 afGui()
 
