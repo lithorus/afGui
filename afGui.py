@@ -85,7 +85,7 @@ class afGui(QtWidgets.QMainWindow):
         #self.mainWindow.jobTree.resizeColumnToContents(0)
         
         self.mainWindow.refreshJobTreeButton.clicked.connect(self.refreshButton)
-        self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectJob)
+        self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectItem)
         
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
         
@@ -162,6 +162,12 @@ class afGui(QtWidgets.QMainWindow):
             else:
                 QtWidgets.QStyledItemDelegate.paint(self, painter, option, index)
     
+    class projectItem(QtWidgets.QTreeWidgetItem):
+        def __init__(self, projectName):
+            super(afGui.projectItem, self).__init__()
+            self.setText(0, "%s" % (projectName))
+            self.setData(0, QtCore.Qt.UserRole, projectName)
+    
     class jobItem(QtWidgets.QTreeWidgetItem):
         def __init__(self, job):
             super(afGui.jobItem, self).__init__()
@@ -182,7 +188,7 @@ class afGui(QtWidgets.QMainWindow):
         
         def setProgress(self, progress):
             self.setText(3, str(progress))
-            
+        
         def setState(self, state):
             self.setText(2, state)
         
@@ -199,7 +205,7 @@ class afGui(QtWidgets.QMainWindow):
             else:
                 dt = datetime.datetime.fromtimestamp(timeStarted)
                 self.setText(9, dt.strftime("%Y-%m-%d %H:%M"))
-            
+    
     class blockItem(jobItem):
         def __init__(self, block, job):
             super(afGui.blockItem, self).__init__(job)
@@ -225,7 +231,7 @@ class afGui(QtWidgets.QMainWindow):
     def refreshButton(self):
         self.updateJobList()
         print("Refresh")
-        
+    
     def updateJobList(self, ids=None):
         if ids is None:
             self.jobList = {}
@@ -244,30 +250,31 @@ class afGui(QtWidgets.QMainWindow):
                 for block in job['blocks']:
                     blockItem = self.blockItem(block, job)
                     jobItem.addChild(blockItem)
-                projectWidget = None
+                projectItem = None
                 isExpanded = False
                 isSelected = False
                 if oldJob:
-                    projectWidget = oldJob.parent()
+                    projectItem = oldJob.parent()
                     isExpanded = oldJob.isExpanded()
                     isSelected = oldJob.isSelected()
                     if isSelected == True:
                         self.mainWindow.jobTree.selectionModel().clear()
-                    projectWidget.removeChild(oldJob)
+                    projectItem.removeChild(oldJob)
                 search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
                 if len(search) == 1:
-                    projectWidget = search[0]
+                    projectItem = search[0]
                 else:
-                    projectWidget = QtWidgets.QTreeWidgetItem()
-                    projectWidget.setText(0, "Project: %s" % (jobItem.projectName))
-                    projectWidget.setData(0, QtCore.Qt.UserRole, jobItem.projectName)
-                    self.mainWindow.jobTree.addTopLevelItem(projectWidget)
-                projectWidget.addChild(jobItem)
+                    projectItem = self.projectItem(jobItem.projectName)
+                    #projectItem = QtWidgets.QTreeWidgetItem()
+                    #projectItem.setText(0, "Project: %s" % (jobItem.projectName))
+                    #projectItem.setData(0, QtCore.Qt.UserRole, jobItem.projectName)
+                    self.mainWindow.jobTree.addTopLevelItem(projectItem)
+                projectItem.addChild(jobItem)
                 jobItem.setExpanded(isExpanded)
                 jobItem.setSelected(isSelected)
                 self.jobList[job['id']] = jobItem
     
-    def selectJob(self):
+    def selectItem(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
         if selectedItems:
             selectedItem = selectedItems[0]
@@ -280,9 +287,12 @@ class afGui(QtWidgets.QMainWindow):
                 blockNum = selectedItem.data(1, QtCore.Qt.UserRole)
                 self.updateJobDetails(jobId)
                 self.updateBlockDetails(jobId, blockNum)
-            else:
+            elif type(selectedItem) == afGui.jobItem:
                 self.updateJobDetails(jobId)
                 self.clearBlockDetails()
+            else:
+                self.clearBlockDetails()
+                self.clearJobDetails()
         else:
             self.clearJobDetails()
             self.clearBlockDetails()

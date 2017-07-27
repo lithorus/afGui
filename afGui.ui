@@ -32,22 +32,13 @@ QGroupBox::title {
     <property name="spacing">
      <number>0</number>
     </property>
-    <property name="leftMargin">
-     <number>0</number>
-    </property>
-    <property name="topMargin">
-     <number>0</number>
-    </property>
-    <property name="rightMargin">
-     <number>0</number>
-    </property>
-    <property name="bottomMargin">
+    <property name="margin">
      <number>0</number>
     </property>
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="jobsTab">
        <attribute name="title">
@@ -82,6 +73,9 @@ QGroupBox::title {
          <widget class="QTreeWidget" name="jobTree">
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
+          </property>
+          <property name="indentation">
+           <number>12</number>
           </property>
           <column>
            <property name="text">
@@ -581,7 +575,7 @@ QGroupBox::title {
      <x>0</x>
      <y>0</y>
      <width>1213</width>
-     <height>19</height>
+     <height>23</height>
     </rect>
    </property>
   </widget>
