@@ -265,9 +265,6 @@ class afGui(QtWidgets.QMainWindow):
                     projectItem = search[0]
                 else:
                     projectItem = self.projectItem(jobItem.projectName)
-                    #projectItem = QtWidgets.QTreeWidgetItem()
-                    #projectItem.setText(0, "Project: %s" % (jobItem.projectName))
-                    #projectItem.setData(0, QtCore.Qt.UserRole, jobItem.projectName)
                     self.mainWindow.jobTree.addTopLevelItem(projectItem)
                 projectItem.addChild(jobItem)
                 jobItem.setExpanded(isExpanded)
