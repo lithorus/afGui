@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, datetime
+import os, sys, datetime, time
 import pprint
 
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
@@ -47,13 +47,12 @@ class status:
     def isPaused(self):
         return bool(self.st & 512)
 
-
-
 class backgroundUpdate(QtCore.QThread):
     jobsUpdated = QtCore.Signal(object)
     def __init__(self, interval=2):
         QtCore.QThread.__init__(self)
         self.interval = interval
+        self.term = False
         self.monitorId = cmd.monitorRegister()
         cmd.monitorSubscribe(self.monitorId, "jobs")
         cmd.monitorSubscribe(self.monitorId, "renders")
@@ -68,6 +67,7 @@ class backgroundUpdate(QtCore.QThread):
                 if jobsChanged is not None:
                     self.jobsUpdated.emit(jobsChanged)
             self.sleep(self.interval)
+    
 
 class afGui(QtWidgets.QMainWindow):
     def __init__(self):
@@ -95,15 +95,18 @@ class afGui(QtWidgets.QMainWindow):
         self.clearJobDetails()
         self.clearBlockDetails()
         
+        self.mainWindow.taskList.clear()
+        
         self.mainWindow.show()
         self.threads = []
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
+        refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
         refresher.start()
         
         self.app.exec_()
-        
+    
     def openJobMenu(self, position):
         menu = QtGui.QMenu()
         
@@ -260,10 +263,16 @@ class afGui(QtWidgets.QMainWindow):
                     if isSelected == True:
                         self.mainWindow.jobTree.selectionModel().clear()
                     projectItem.removeChild(oldJob)
-                search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
-                if len(search) == 1:
-                    projectItem = search[0]
-                else:
+                for i in range(0, self.mainWindow.jobTree.topLevelItemCount()):
+                    topItem = self.mainWindow.jobTree.topLevelItem(i)
+                    if topItem.text(0) == jobItem.projectName:
+                        projectItem = topItem
+                        break
+                #search = self.mainWindow.jobTree.findItems("Project: %s" % (jobItem.projectName), 0, column=0)
+                #print(search)
+                #if len(search) == 1:
+                #    projectItem = search[0]
+                if projectItem is None:
                     projectItem = self.projectItem(jobItem.projectName)
                     self.mainWindow.jobTree.addTopLevelItem(projectItem)
                 projectItem.addChild(jobItem)
@@ -276,7 +285,7 @@ class afGui(QtWidgets.QMainWindow):
         if selectedItems:
             selectedItem = selectedItems[0]
             jobId = selectedItem.data(0, QtCore.Qt.UserRole)
-            
+            self.mainWindow.taskList.clear()
             if type(selectedItem) == afGui.blockItem:
                 ### Block ###
                 jobItem = selectedItem.parent()
@@ -285,9 +294,22 @@ class afGui(QtWidgets.QMainWindow):
                 self.updateJobDetails(jobId)
                 self.updateBlockDetails(jobId, blockNum)
             elif type(selectedItem) == afGui.jobItem:
+                ### Job ###
                 self.updateJobDetails(jobId)
+                '''
+                count = self.mainWindow.taskList.count()
+                for i in range(0, count):
+                    item = self.mainWindow.taskList.item(i)
+                    progress = QtGui.QProgressBar()
+                    progress.setMaximum(100)
+                    progress.setMinimum(0)
+                    progress.setValue(40)
+                    progress.setFormat("%vs")
+                    self.mainWindow.taskList.setItemWidget(item, progress)
+                '''
                 self.clearBlockDetails()
             else:
+                ### Project ###
                 self.clearBlockDetails()
                 self.clearJobDetails()
         else:
@@ -305,6 +327,24 @@ class afGui(QtWidgets.QMainWindow):
     def updateBlockDetails(self, jobId, blockNum):
         jobDetails = self.cmd.getJobInfo(jobId, True)[0]
         blockDetails = jobDetails['blocks'][blockNum]
+        #print(blockDetails)
+        i = blockDetails['frame_first']
+        fpt = blockDetails['frames_per_task']
+        increment = blockDetails['frames_inc']
+        jobProgress = cmd.getJobProgress(jobId, True)
+        for item in jobProgress['progress'][blockNum]:
+            taskItem = QtGui.QTreeWidgetItem(self.mainWindow.taskList)
+            taskItem.setText(0, "Task %d" % (i))
+            taskItem.setText(1, item['state'])
+            timeDone = item.get('tdn')
+            timeStarted = item.get('tst')
+            if timeDone and timeStarted:
+                duration = timeDone-timeStarted
+                taskItem.setText(2, str(datetime.timedelta(seconds=duration)))
+            i+=1
+        self.mainWindow.taskList.resizeColumnToContents(0)
+        self.mainWindow.taskList.resizeColumnToContents(1)
+        self.mainWindow.taskList.resizeColumnToContents(2)
         blockStatus = status(blockDetails['st'])
         self.mainWindow.blockNameValue.setText(blockDetails['name'])
         self.mainWindow.blockStatusValue.setText(blockDetails['state'])
