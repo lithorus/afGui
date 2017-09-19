@@ -3,8 +3,6 @@
 import os
 import sys
 import datetime
-import time
-import pprint
 
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 
@@ -23,11 +21,6 @@ cmd = af.Cmd()
 
 
 class status:
-    """Missing DocString
-
-    :param st:
-    :return:
-    """
     def __init__(self, st):
         self.st = st
 
@@ -227,7 +220,7 @@ class afGui(QtWidgets.QMainWindow):
             self.setText(4, str(block['capacity']))
             self.setText(5, str(block['frame_first']))
             self.setText(6, str(block['frame_last']))
-            self.setText(7, "%d/%d" % (block['frame_last']-block['frame_first']+1, block['frames_inc']))
+            self.setText(7, "%d/%d" % (block['frame_last'] - block['frame_first'] + 1, block['frames_inc']))
 
             self.setData(1, QtCore.Qt.UserRole, block['block_num'])
             # blockProgress = jobProgress['progress'][block['block_num']]
@@ -252,7 +245,7 @@ class afGui(QtWidgets.QMainWindow):
                     blocksProgress = 0
                     for block in job['blocks']:
                         blocksProgress += block.get('p_percentage', 0)
-                    job['p_percentage'] = blocksProgress/len(job['blocks'])
+                    job['p_percentage'] = blocksProgress / len(job['blocks'])
                     jobItem = self.jobItem(job)
                     oldJob = self.jobList.get(job['id'])
                     # jobProgress = self.cmd.getJobProgress(job['id'], True)
@@ -345,7 +338,7 @@ class afGui(QtWidgets.QMainWindow):
             timeDone = item.get('tdn')
             timeStarted = item.get('tst')
             if timeDone and timeStarted:
-                duration = timeDone-timeStarted
+                duration = timeDone - timeStarted
                 taskItem.setText(2, str(datetime.timedelta(seconds=duration)))
             i += 1
         self.mainWindow.taskList.resizeColumnToContents(0)
