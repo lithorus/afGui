@@ -88,3 +88,7 @@ ENV/
 # Rope project settings
 .ropeproject
 /test.py
+.pylintrc
+.vscode/settings.json
+.vscode/settings.json
+.vscode/tags

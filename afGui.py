@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
 
 import os
 import sys
@@ -20,26 +20,33 @@ import af
 cmd = af.Cmd()
 
 
-class status:
+class status(object):
+    '''
+    dummy class for descriping status
+    '''
     def __init__(self, st):
         self.st = st
 
     def getText(self):
+        '''
+        Return status text
+        '''
+        text = "Unknown"
         if self.st & 513 == 513:
-            return "Ready (Paused)"
+            text = "Ready (Paused)"
         elif self.st & 1 == 1:
-            return "Ready"
+            text = "Ready"
         elif bool(self.st & 2):
-            return "Running"
+            text = "Running"
         elif bool(self.st & 4):
-            return "Wainting dependences"
+            text = "Waiting on dependences"
         elif bool(self.st & 8):
-            return "Wainting time"
+            text = "Waiting on time"
         elif bool(self.st & 16):
-            return "Done"
+            text = "Done"
         elif bool(self.st & 32):
-            return "Error"
-        return "Unknown"
+            text = "Error"
+        return text
 
     def isPaused(self):
         return bool(self.st & 512)
@@ -51,10 +58,12 @@ class backgroundUpdate(QtCore.QThread):
     def __init__(self, interval=2):
         QtCore.QThread.__init__(self)
         self.interval = interval
-        self.term = False
         self.monitorId = cmd.monitorRegister()
         cmd.monitorSubscribe(self.monitorId, "jobs")
         cmd.monitorSubscribe(self.monitorId, "renders")
+
+    def unregister(self):
+        cmd.monitorUnregister(self.monitorId)
 
     def run(self):
         while True:
@@ -75,7 +84,9 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow = load_ui(fname="afGui.ui")
         self.mainWindow.setWindowIcon(QtGui.QIcon('afanasy.png'))
         self.mainWindow.jobTree.setItemDelegate(self.progressDelegate())
-
+        fd = open("darkorange.stylesheet")
+        self.mainWindow.setStyleSheet(fd.read())
+        fd.close()
         self.cmd = af.Cmd()
         self.mainWindow.jobTree.clear()
         self.jobList = {}
@@ -87,6 +98,7 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectItem)
 
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
+        self.mainWindow.taskList.customContextMenuRequested.connect(self.openTaskMenu)
 
         self.renderList = {}
         self.updateRendersList()
@@ -98,6 +110,7 @@ class afGui(QtWidgets.QMainWindow):
 
         self.mainWindow.show()
         self.threads = []
+
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
         refresher.setTerminationEnabled(True)
@@ -105,20 +118,39 @@ class afGui(QtWidgets.QMainWindow):
         refresher.start()
 
         self.app.exec_()
+        for thread in self.threads:
+            thread.unregister()
+
+    def openTaskMenu(self, position):
+        menu = QtGui.QMenu()
+
+        skipTaskAction = menu.addAction("Skip")
+        skipTaskAction.triggered.connect(self.skipTaskActionEvent)
+        restartTaskAction = menu.addAction("Restart")
+        restartTaskAction.triggered.connect(self.restartTaskActionEvent)
+
+        menu.exec_(self.mainWindow.taskList.mapToGlobal(position))
 
     def openJobMenu(self, position):
         menu = QtGui.QMenu()
 
-        selectedJobItems = self.mainWindow.jobTree.selectedItems()
+        # selectedJobItems = self.mainWindow.jobTree.selectedItems()
 
-        startJobAction = menu.addAction("Start")
-        startJobAction.triggered.connect(self.startJobActionEvent)
-        pauseJobAction = menu.addAction("Pause")
-        pauseJobAction.triggered.connect(self.pauseJobActionEvent)
-        stopJobAction = menu.addAction("Stop")
-        stopJobAction.triggered.connect(self.stopJobActionEvent)
-        deleteJobAction = menu.addAction("Delete")
-        deleteJobAction.triggered.connect(self.deleteJobActionEvent)
+        if type(self.mainWindow.jobTree.currentItem()) == self.jobItem:
+            startJobAction = menu.addAction("Start")
+            startJobAction.triggered.connect(self.startJobActionEvent)
+            pauseJobAction = menu.addAction("Pause")
+            pauseJobAction.triggered.connect(self.pauseJobActionEvent)
+            stopJobAction = menu.addAction("Stop")
+            stopJobAction.triggered.connect(self.stopJobActionEvent)
+            deleteJobAction = menu.addAction("Delete")
+            deleteJobAction.triggered.connect(self.deleteJobActionEvent)
+        if type(self.mainWindow.jobTree.currentItem()) == self.blockItem:
+            skipBlockAction = menu.addAction("Skip")
+            skipBlockAction.triggered.connect(self.skipBlockActionEvent)
+            restartBlockAction = menu.addAction("Restart")
+            restartBlockAction.triggered.connect(self.restartBlockActionEvent)
+
         # imagesMenu = menu.addMenu("Images")
 
         menu.exec_(self.mainWindow.jobTree.mapToGlobal(position))
@@ -144,6 +176,32 @@ class afGui(QtWidgets.QMainWindow):
             jobId = jobItem.data(0, QtCore.Qt.UserRole)
             self.cmd.deleteJobById(jobId)
             jobItem.parent().removeChild(jobItem)
+
+    def skipBlockActionEvent(self):
+        selectedBlockItems = self.mainWindow.jobTree.selectedItems()
+        for blockItem in selectedBlockItems:
+            blockItem.skip()
+
+    def restartBlockActionEvent(self):
+        selectedBlockItems = self.mainWindow.jobTree.selectedItems()
+        for blockItem in selectedBlockItems:
+            blockItem.restart()
+
+    def skipTaskActionEvent(self):
+        selectedBlock = self.mainWindow.jobTree.currentItem()
+        taskIds = []
+        selectedTaskItems = self.mainWindow.taskList.selectedItems()
+        for taskItem in selectedTaskItems:
+            taskIds.append(taskItem.data(0, QtCore.Qt.UserRole))
+        selectedBlock.skip(taskIds)
+
+    def restartTaskActionEvent(self):
+        selectedBlock = self.mainWindow.jobTree.currentItem()
+        taskIds = []
+        selectedTaskItems = self.mainWindow.taskList.selectedItems()
+        for taskItem in selectedTaskItems:
+            taskIds.append(taskItem.data(0, QtCore.Qt.UserRole))
+        selectedBlock.restart(taskIds)
 
     class progressDelegate(QtWidgets.QStyledItemDelegate):
         def __init__(self, parent=None):
@@ -213,7 +271,8 @@ class afGui(QtWidgets.QMainWindow):
             super(afGui.blockItem, self).__init__(job)
             self.setText(0, block['name'])
             self.setText(1, job['user_name'])
-
+            self.block = block
+            self.jobId = job['id']
             self.setState(block['state'].strip())
             self.setProgress(block.get('p_percentage', 0))
 
@@ -224,6 +283,12 @@ class afGui(QtWidgets.QMainWindow):
 
             self.setData(1, QtCore.Qt.UserRole, block['block_num'])
             # blockProgress = jobProgress['progress'][block['block_num']]
+
+        def skip(self, taskIds=[]):
+            cmd.setBlockState(self.jobId, self.block['block_num'], 'skip', taskIds, True)
+
+        def restart(self, taskIds=[]):
+            cmd.setBlockState(self.jobId, self.block['block_num'], 'restart', taskIds, True)
 
     class renderWidget(QtGui.QTreeWidgetItem):
         def __init__(self):
@@ -327,14 +392,16 @@ class afGui(QtWidgets.QMainWindow):
         jobDetails = self.cmd.getJobInfo(jobId, True)[0]
         blockDetails = jobDetails['blocks'][blockNum]
         # print(blockDetails)
-        i = blockDetails['frame_first']
+        ff = blockDetails['frame_first']
         fpt = blockDetails['frames_per_task']
         increment = blockDetails['frames_inc']
         jobProgress = cmd.getJobProgress(jobId, True)
+        i = 0
         for item in jobProgress['progress'][blockNum]:
             taskItem = QtGui.QTreeWidgetItem(self.mainWindow.taskList)
-            taskItem.setText(0, "Task %d" % (i))
+            taskItem.setText(0, "Task %d" % (i + ff))
             taskItem.setText(1, item['state'])
+            taskItem.setData(0, QtCore.Qt.UserRole, i)
             timeDone = item.get('tdn')
             timeStarted = item.get('tst')
             if timeDone and timeStarted:
