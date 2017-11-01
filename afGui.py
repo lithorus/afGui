@@ -1,6 +1,7 @@
 #!/usr/bin/python2.7
 
 import os
+import re
 import sys
 import datetime
 
@@ -9,6 +10,20 @@ os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 from Qt import QtWidgets, QtCore, QtGui, load_ui  # @UnresolvedImport
 
 import af
+import cgruconfig
+
+config = cgruconfig.Config()
+match = re.match("^(\d+)\.(\d+)\.(\d+)", config.Vars['CGRU_VERSION'])
+
+versionOK = False
+if match:
+    if match.group(1) >= 2:
+        if match .group(2) >= 3:
+            versionOK = True
+
+if versionOK is not True:
+    print("Wrong version of CGRU")
+    sys.exit()
 
 # cgruPath = '/opt/projects/cgru'
 
