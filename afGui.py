@@ -94,6 +94,12 @@ class backgroundUpdate(QtCore.QThread):
 
 
 class afGui(QtWidgets.QMainWindow):
+    projectList = []
+    userList = []
+    jobList = {}
+    renderList = {}
+    threads = []
+
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
 
@@ -103,15 +109,18 @@ class afGui(QtWidgets.QMainWindow):
         fd = open("darkorange.stylesheet")
         self.mainWindow.setStyleSheet(fd.read())
         fd.close()
-        self.userFilterMenu = multiselect.multiselect()
-        self.userFilterMenu.setText('User(s)')
-        self.userFilterMenu.updateChoices(['jimmy', 'evelina', 'olivia'])
-        print(self.userFilterMenu.getCheckedChoices())
+
+        self.userFilterMenu = multiselect.Multiselect('User(s)')
         self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.userFilterMenu)
+        # self.userFilterMenu.updateChoices(['all', 'jimmy', 'evelina', 'olivia'])
+        # self.userFilterMenu.setChoice('jimmy', True)
+
+        self.projectFilterMenu = multiselect.Multiselect('Project(s)')
+        self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.projectFilterMenu)
+        self.projectFilterMenu.triggered.connect(self.selectProjectFilter)
 
         self.cmd = af.Cmd()
         self.mainWindow.jobTree.clear()
-        self.jobList = {}
         self.updateJobList()
         self.mainWindow.jobTree.setColumnWidth(0, 200)
         # self.mainWindow.jobTree.resizeColumnToContents(0)
@@ -122,7 +131,6 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
         self.mainWindow.taskList.customContextMenuRequested.connect(self.openTaskMenu)
 
-        self.renderList = {}
         self.updateRendersList()
 
         self.clearJobDetails()
@@ -131,7 +139,6 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.taskList.clear()
 
         self.mainWindow.show()
-        self.threads = []
 
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
@@ -363,10 +370,14 @@ class afGui(QtWidgets.QMainWindow):
                     if projectItem is None:
                         projectItem = self.projectItem(jobItem.projectName)
                         self.mainWindow.jobTree.addTopLevelItem(projectItem)
+                        self.projectList.append(jobItem.projectName)
                     projectItem.addChild(jobItem)
                     jobItem.setExpanded(isExpanded)
                     jobItem.setSelected(isSelected)
                     self.jobList[job['id']] = jobItem
+
+        self.projectFilterMenu.updateChoices(self.projectList)
+        self.filterJobs()
 
     def selectItem(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -481,6 +492,13 @@ class afGui(QtWidgets.QMainWindow):
                 renderItem.setText(2, "%d/%d" % (render['capacity_used'], render['host']['capacity']))
                 self.renderList[render['id']] = renderItem
                 self.mainWindow.rendersTree.addTopLevelItem(renderItem)
+
+    def selectProjectFilter(self, action):
+        choices = action.parentWidget().parentWidget().getCheckedChoices()
+        print(choices)
+
+    def filterJobs(self):
+        pass
 
 
 if __name__ == "__main__":
