@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import datetime
+import multiselect
 
 os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
 
@@ -102,6 +103,12 @@ class afGui(QtWidgets.QMainWindow):
         fd = open("darkorange.stylesheet")
         self.mainWindow.setStyleSheet(fd.read())
         fd.close()
+        self.userFilterMenu = multiselect.multiselect()
+        self.userFilterMenu.setText('User(s)')
+        self.userFilterMenu.updateChoices(['jimmy', 'evelina', 'olivia'])
+        print(self.userFilterMenu.getCheckedChoices())
+        self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.userFilterMenu)
+
         self.cmd = af.Cmd()
         self.mainWindow.jobTree.clear()
         self.jobList = {}
@@ -133,8 +140,10 @@ class afGui(QtWidgets.QMainWindow):
         refresher.start()
 
         self.app.exec_()
+        '''
         for thread in self.threads:
             thread.unregister()
+        '''
 
     def openTaskMenu(self, position):
         menu = QtGui.QMenu()
