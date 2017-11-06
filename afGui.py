@@ -13,7 +13,7 @@ import af
 import cgruconfig
 
 config = cgruconfig.Config()
-match = re.match("^(\d+)\.(\d+)\.(\d+)", config.Vars['CGRU_VERSION'])
+match = re.match(r"^(\d+)\.(\d+)\.(\d+)", config.Vars['CGRU_VERSION'])
 
 versionOK = False
 if match:
