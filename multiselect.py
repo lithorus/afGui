@@ -4,7 +4,6 @@ Created on 6 Nov 2017
 @author: jimmy
 '''
 from PySide import QtGui
-from asn1crypto.cms import CertificateChoices
 
 
 class Multiselect(QtGui.QToolButton):
