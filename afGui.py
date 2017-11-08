@@ -113,6 +113,7 @@ class afGui(QtWidgets.QMainWindow):
 
         self.userFilterMenu = multiselect.Multiselect('User(s)')
         self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.userFilterMenu)
+        self.userFilterMenu.triggered.connect(self.selectUserFilter)
         # self.userFilterMenu.updateChoices(['all', 'jimmy', 'evelina', 'olivia'])
         # self.userFilterMenu.setChoice('jimmy', True)
 
@@ -278,6 +279,9 @@ class afGui(QtWidgets.QMainWindow):
             self.setTimeDone(job.get('time_done', None))
             self.setData(0, QtCore.Qt.UserRole, job['id'])
 
+        def getUserName(self):
+            return self.text(1)
+
         def setProgress(self, progress):
             self.setText(3, str(progress))
 
@@ -339,6 +343,8 @@ class afGui(QtWidgets.QMainWindow):
         if newJobList:
             for job in newJobList:
                 if job['user_name'] not in ['afadmin']:
+                    if job['user_name'] not in self.userList:
+                        self.userList.append(job['user_name'])
                     blocksProgress = 0
                     for block in job['blocks']:
                         blocksProgress += block.get('p_percentage', 0)
@@ -378,6 +384,7 @@ class afGui(QtWidgets.QMainWindow):
                     self.jobList[job['id']] = jobItem
 
         self.projectFilterMenu.updateChoices(self.projectList)
+        self.userFilterMenu.updateChoices(self.userList)
         self.filterJobs()
 
     def selectItem(self):
@@ -495,19 +502,27 @@ class afGui(QtWidgets.QMainWindow):
                 self.mainWindow.rendersTree.addTopLevelItem(renderItem)
 
     def selectProjectFilter(self, action):
-        choices = action.parentWidget().parentWidget().getCheckedChoices()
+        # choices = action.parentWidget().parentWidget().getCheckedChoices()
+        self.filterJobs()
+
+    def selectUserFilter(self, action):
+        # choices = action.parentWidget().parentWidget().getCheckedChoices()
         self.filterJobs()
 
     def filterJobs(self):
         projects = self.projectFilterMenu.getCheckedChoices()
-        print(self.mainWindow.jobTree.topLevelItemCount())
+        users = self.userFilterMenu.getCheckedChoices()
         for i in range(0, self.mainWindow.jobTree.topLevelItemCount()):
             projectItem = self.mainWindow.jobTree.topLevelItem(i)
             projectName = projectItem.text(0)
-            print(projectName)
-            print(projects)
             if projectName in projects or projects == []:
                 projectItem.setHidden(False)
+                for j in range(0, projectItem.childCount()):
+                    jobItem = projectItem.child(j)
+                    if jobItem.getUserName() in users or users == []:
+                        jobItem.setHidden(False)
+                    else:
+                        jobItem.setHidden(True)
             else:
                 projectItem.setHidden(True)
         pass
