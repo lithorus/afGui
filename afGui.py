@@ -75,6 +75,7 @@ class backgroundUpdate(QtCore.QThread):
         QtCore.QThread.__init__(self)
         self.interval = interval
         self.monitorId = cmd.monitorRegister()
+        cmd.monitorChangeUid(self.monitorId, 0)
         cmd.monitorSubscribe(self.monitorId, "jobs")
         cmd.monitorSubscribe(self.monitorId, "renders")
 
@@ -147,10 +148,10 @@ class afGui(QtWidgets.QMainWindow):
         refresher.start()
 
         self.app.exec_()
-        '''
+
         for thread in self.threads:
+            print('thing')
             thread.unregister()
-        '''
 
     def openTaskMenu(self, position):
         menu = QtGui.QMenu()
