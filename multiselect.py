@@ -22,7 +22,6 @@ class Multiselect(QtGui.QToolButton):
         self.setPopupMode(QtGui.QToolButton.MenuButtonPopup)
         self.clicked.connect(self.showMenu)
 
-    
     def updateChoices(self, choices):
         '''
         Update the Choices

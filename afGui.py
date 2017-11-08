@@ -496,9 +496,20 @@ class afGui(QtWidgets.QMainWindow):
 
     def selectProjectFilter(self, action):
         choices = action.parentWidget().parentWidget().getCheckedChoices()
-        print(choices)
+        self.filterJobs()
 
     def filterJobs(self):
+        projects = self.projectFilterMenu.getCheckedChoices()
+        print(self.mainWindow.jobTree.topLevelItemCount())
+        for i in range(0, self.mainWindow.jobTree.topLevelItemCount()):
+            projectItem = self.mainWindow.jobTree.topLevelItem(i)
+            projectName = projectItem.text(0)
+            print(projectName)
+            print(projects)
+            if projectName in projects or projects == []:
+                projectItem.setHidden(False)
+            else:
+                projectItem.setHidden(True)
         pass
 
 
