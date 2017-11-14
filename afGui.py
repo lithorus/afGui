@@ -90,8 +90,8 @@ class backgroundUpdate(QtCore.QThread):
                     self.jobsUpdated.emit(jobsChanged)
                 if rendersChanged is not None:
                     self.rendersUpdated.emit(rendersChanged)
-            # resources = cmd.renderGetResources()
-            # self.resourcesUpdated.emit(resources)
+            resources = cmd.renderGetResources()
+            self.resourcesUpdated.emit(resources)
             self.sleep(self.interval)
         self.unregister()
 
@@ -148,7 +148,7 @@ class afGui(QtWidgets.QMainWindow):
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
         refresher.rendersUpdated.connect(self.updateRendersList)
-        # refresher.ressourcesUpdated.connect(self.updateRessources)
+        refresher.resourcesUpdated.connect(self.updateResources)
         # refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
         refresher.start()
@@ -521,19 +521,18 @@ class afGui(QtWidgets.QMainWindow):
                 self.renderList[render['id']] = renderItem
                 self.mainWindow.rendersTree.addTopLevelItem(renderItem)
 
-    def updateRessources(self, ressources):
+    def updateResources(self, resources):
         # ressources = cmd.renderGetRessources()
-        print(ressources)
-        for render in ressources:
+        # print(resources)
+        for render in resources:
+            print(render)
             renderItem = self.renderList.get(render['id'])
-            print(renderItem.getId())
+            renderItem.updateCPU(render['host_resources']['cpu_user'])
 
     def selectProjectFilter(self, action):
-        # choices = action.parentWidget().parentWidget().getCheckedChoices()
         self.filterJobs()
 
     def selectUserFilter(self, action):
-        # choices = action.parentWidget().parentWidget().getCheckedChoices()
         self.filterJobs()
 
     def filterJobs(self):
