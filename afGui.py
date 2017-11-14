@@ -26,13 +26,6 @@ if versionOK is not True:
     print("Wrong version of CGRU")
     sys.exit()
 
-# cgruPath = '/opt/projects/cgru'
-
-# os.environ['CGRU_LOCATION'] = cgruPath
-
-# sys.path.append(os.path.join(cgruPath, 'lib', 'python'))
-# sys.path.append(os.path.join(cgruPath, 'afanasy', 'python'))
-
 cmd = af.Cmd()
 
 
@@ -260,6 +253,7 @@ class afGui(QtWidgets.QMainWindow):
             super(afGui.projectItem, self).__init__()
             self.setText(0, "%s" % (projectName))
             self.setData(0, QtCore.Qt.UserRole, projectName)
+            self.setFlags(QtCore.Qt.ItemIsEnabled)
 
     class jobItem(QtWidgets.QTreeWidgetItem):
         def __init__(self, job):
@@ -403,17 +397,6 @@ class afGui(QtWidgets.QMainWindow):
             elif type(selectedItem) == afGui.jobItem:
                 ''' Job '''
                 self.updateJobDetails(jobId)
-                '''
-                count = self.mainWindow.taskList.count()
-                for i in range(0, count):
-                    item = self.mainWindow.taskList.item(i)
-                    progress = QtGui.QProgressBar()
-                    progress.setMaximum(100)
-                    progress.setMinimum(0)
-                    progress.setValue(40)
-                    progress.setFormat("%vs")
-                    self.mainWindow.taskList.setItemWidget(item, progress)
-                '''
                 self.clearBlockDetails()
             else:
                 ''' Project '''
