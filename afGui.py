@@ -63,11 +63,14 @@ class status(object):
 
 class backgroundUpdate(QtCore.QThread):
     jobsUpdated = QtCore.Signal(object)
+    resourcesUpdated = QtCore.Signal(object)
+    rendersUpdated = QtCore.Signal(object)
 
     def __init__(self, interval=2):
         QtCore.QThread.__init__(self)
         self.interval = interval
         self.monitorId = cmd.monitorRegister()
+        self.stop = False
         cmd.monitorChangeUid(self.monitorId, 0)
         cmd.monitorSubscribe(self.monitorId, "jobs")
         cmd.monitorSubscribe(self.monitorId, "renders")
@@ -76,15 +79,21 @@ class backgroundUpdate(QtCore.QThread):
         cmd.monitorUnregister(self.monitorId)
 
     def run(self):
-        while True:
+        while self.stop is not True:
             result = cmd.monitorEvents(self.monitorId)
             events = result.get("events")
             if events is not None:
                 print(events)
                 jobsChanged = events.get("jobs_change")
+                rendersChanged = events.get("renders_change")
                 if jobsChanged is not None:
                     self.jobsUpdated.emit(jobsChanged)
+                if rendersChanged is not None:
+                    self.rendersUpdated.emit(rendersChanged)
+            # resources = cmd.renderGetResources()
+            # self.resourcesUpdated.emit(resources)
             self.sleep(self.interval)
+        self.unregister()
 
 
 class afGui(QtWidgets.QMainWindow):
@@ -126,6 +135,7 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
         self.mainWindow.taskList.customContextMenuRequested.connect(self.openTaskMenu)
 
+        self.mainWindow.rendersTree.clear()
         self.updateRendersList()
 
         self.clearJobDetails()
@@ -137,7 +147,9 @@ class afGui(QtWidgets.QMainWindow):
 
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
-        refresher.setTerminationEnabled(True)
+        refresher.rendersUpdated.connect(self.updateRendersList)
+        # refresher.ressourcesUpdated.connect(self.updateRessources)
+        # refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
         refresher.start()
 
@@ -145,7 +157,8 @@ class afGui(QtWidgets.QMainWindow):
 
         for thread in self.threads:
             print('thing')
-            thread.unregister()
+            thread.stop = True
+            thread.wait()
 
     def openTaskMenu(self, position):
         menu = QtGui.QMenu()
@@ -321,9 +334,31 @@ class afGui(QtWidgets.QMainWindow):
             cmd.setBlockState(self.jobId, self.block['block_num'], 'restart', taskIds, True)
 
     class renderWidget(QtGui.QTreeWidgetItem):
-        def __init__(self):
+        renderId = None
+        totalCapacity = 0
+
+        def __init__(self, renderId, renderName):
             super(afGui.renderWidget, self).__init__()
-            pass
+            self.renderId = renderId
+            self.setText(0, renderName)
+
+        def setCapacity(self, capacity):
+            self.totalCapacity = capacity
+
+        def updateState(self, state):
+            self.setText(1, state)
+
+        def updateCapacity(self, used):
+            self.setText(2, "%d/%d" % (used, self.totalCapacity))
+
+        def getId(self):
+            return self.renderId
+
+        def updateCPU(self, cpu):
+            self.setText(3, "%d%%" % cpu)
+
+        def updateMemory(self, memory):
+            self.setText(4, "%d/%d" % (memory, self.totalMem))
 
     def refreshButton(self):
         self.updateJobList()
@@ -470,19 +505,28 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
         # print(jobDetails)
 
-    def updateRendersList(self, rid=None):
-        self.mainWindow.rendersTree.clear()
-        rendersList = cmd.renderGetList()
-        print(cmd.renderGetId(rid))
-        print(cmd.renderGetId(rid, "resources"))
+    def updateRendersList(self, rids=None):
+        rendersList = []
+        if rids is not None:
+            for rid in rids:
+                rendersList.extend(cmd.renderGetId(rid)['renders'])
+        else:
+            rendersList = cmd.renderGetList()
         if rendersList:
             for render in rendersList:
-                renderItem = self.renderList.get(render['id'], self.renderWidget())
-                renderItem.setText(0, render['name'])
-                renderItem.setText(1, render['state'])
-                renderItem.setText(2, "%d/%d" % (render['capacity_used'], render['host']['capacity']))
+                renderItem = self.renderList.get(render['id'], self.renderWidget(render['id'], render['name']))
+                renderItem.updateState(render['state'])
+                renderItem.setCapacity(render['host']['capacity'])
+                renderItem.updateCapacity(render['capacity_used'])
                 self.renderList[render['id']] = renderItem
                 self.mainWindow.rendersTree.addTopLevelItem(renderItem)
+
+    def updateRessources(self, ressources):
+        # ressources = cmd.renderGetRessources()
+        print(ressources)
+        for render in ressources:
+            renderItem = self.renderList.get(render['id'])
+            print(renderItem.getId())
 
     def selectProjectFilter(self, action):
         # choices = action.parentWidget().parentWidget().getCheckedChoices()
