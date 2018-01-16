@@ -357,8 +357,14 @@ class afGui(QtWidgets.QMainWindow):
         def updateCPU(self, cpu):
             self.setText(3, "%d%%" % cpu)
 
-        def updateMemory(self, memory):
-            self.setText(4, "%d/%d" % (memory, self.totalMem))
+        def updateMemory(self, memUsed, memTotal):
+            self.setText(4, "%d/%d" % (memUsed, memTotal))
+
+        def updateSwap(self, swapUsed, swapTotal):
+            self.setText(5, "%d/%d" % (swapUsed, swapTotal))
+
+        def updateUsers(self, users):
+            self.setText(9, ",".join(users))
 
     def refreshButton(self):
         self.updateJobList()
@@ -522,12 +528,15 @@ class afGui(QtWidgets.QMainWindow):
                 self.mainWindow.rendersTree.addTopLevelItem(renderItem)
 
     def updateResources(self, resources):
-        # ressources = cmd.renderGetRessources()
-        # print(resources)
         for render in resources:
             print(render)
             renderItem = self.renderList.get(render['id'])
-            renderItem.updateCPU(render['host_resources']['cpu_user'])
+            if 'host_resources' in render:
+                renderItem.updateCPU(render['host_resources']['cpu_user'])
+                renderItem.updateMemory(render['host_resources']['mem_total_mb'] - render['host_resources']['mem_free_mb'], render['host_resources']['mem_total_mb'])
+                renderItem.updateUsers(render['host_resources']['logged_in_users'])
+            else:
+                renderItem.updateCPU(0)
 
     def selectProjectFilter(self, action):
         self.filterJobs()

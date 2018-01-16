@@ -95,9 +95,6 @@ QGroupBox::title {
             <property name="indentation">
              <number>12</number>
             </property>
-            <property name="sortingEnabled">
-             <bool>true</bool>
-            </property>
             <column>
              <property name="text">
               <string>Name</string>
@@ -566,7 +563,7 @@ QGroupBox::title {
           </column>
           <column>
            <property name="text">
-            <string>User</string>
+            <string>User(s)</string>
            </property>
           </column>
           <column>
