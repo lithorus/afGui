@@ -95,6 +95,9 @@ QGroupBox::title {
             <property name="indentation">
              <number>12</number>
             </property>
+            <property name="uniformRowHeights">
+             <bool>true</bool>
+            </property>
             <column>
              <property name="text">
               <string>Name</string>

@@ -63,6 +63,7 @@ class status(object):
 
 class backgroundUpdate(QtCore.QThread):
     jobsUpdated = QtCore.Signal(object)
+    jobsDeleted = QtCore.Signal(object)
     resourcesUpdated = QtCore.Signal(object)
     rendersUpdated = QtCore.Signal(object)
 
@@ -84,12 +85,15 @@ class backgroundUpdate(QtCore.QThread):
             events = result.get("events")
             if events is not None:
                 print(events)
-                jobsChanged = events.get("jobs_change")
-                rendersChanged = events.get("renders_change")
-                if jobsChanged is not None:
+                if "jobs_change" in events:
+                    jobsChanged = events.get("jobs_change")
                     self.jobsUpdated.emit(jobsChanged)
-                if rendersChanged is not None:
+                if "renders_change" in events:
+                    rendersChanged = events.get("renders_change")
                     self.rendersUpdated.emit(rendersChanged)
+                if "jobs_del" in events:
+                    jobsDeleted = events.get("jobs_del")
+                    self.jobsDeleted.emit(jobsDeleted)
             resources = cmd.renderGetResources()
             self.resourcesUpdated.emit(resources)
             self.sleep(self.interval)
@@ -125,9 +129,12 @@ class afGui(QtWidgets.QMainWindow):
 
         self.cmd = af.Cmd()
         self.mainWindow.jobTree.clear()
+        self.mainWindow.jobTree.setSortingEnabled(False)
+        self.mainWindow.jobTree.resizeColumnToContents(0)
         self.updateJobList()
+        self.mainWindow.jobTree.setSortingEnabled(True)
         self.mainWindow.jobTree.setColumnWidth(0, 200)
-        # self.mainWindow.jobTree.resizeColumnToContents(0)
+        # self.mainWindow.jobTree.sortItems(0, QtCore.Qt.AscendingOrder)
 
         self.mainWindow.refreshJobTreeButton.clicked.connect(self.refreshButton)
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectItem)
@@ -147,12 +154,13 @@ class afGui(QtWidgets.QMainWindow):
 
         refresher = backgroundUpdate()
         refresher.jobsUpdated.connect(self.updateJobList)
+        refresher.jobsDeleted.connect(self.deleteJobs)
         refresher.rendersUpdated.connect(self.updateRendersList)
         refresher.resourcesUpdated.connect(self.updateResources)
         # refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
-        refresher.start()
 
+        refresher.start()
         self.app.exec_()
 
         for thread in self.threads:
@@ -417,10 +425,14 @@ class afGui(QtWidgets.QMainWindow):
                     jobItem.setExpanded(isExpanded)
                     jobItem.setSelected(isSelected)
                     self.jobList[job['id']] = jobItem
-
         self.projectFilterMenu.updateChoices(self.projectList)
         self.userFilterMenu.updateChoices(self.userList)
         self.filterJobs()
+
+    def deleteJobs(self, ids):
+        for jobId in ids:
+            jobItem = self.jobList.get(jobId)
+            jobItem.parent().removeChild(jobItem)
 
     def selectItem(self):
         selectedItems = self.mainWindow.jobTree.selectedItems()
@@ -521,22 +533,24 @@ class afGui(QtWidgets.QMainWindow):
         if rendersList:
             for render in rendersList:
                 renderItem = self.renderList.get(render['id'], self.renderWidget(render['id'], render['name']))
-                renderItem.updateState(render['state'])
-                renderItem.setCapacity(render['host']['capacity'])
-                renderItem.updateCapacity(render['capacity_used'])
-                self.renderList[render['id']] = renderItem
-                self.mainWindow.rendersTree.addTopLevelItem(renderItem)
+                if renderItem:
+                    renderItem.updateState(render['state'])
+                    renderItem.setCapacity(render['host']['capacity'])
+                    renderItem.updateCapacity(render['capacity_used'])
+                    self.renderList[render['id']] = renderItem
+                    self.mainWindow.rendersTree.addTopLevelItem(renderItem)
 
     def updateResources(self, resources):
         for render in resources:
-            print(render)
+            # print(render)
             renderItem = self.renderList.get(render['id'])
-            if 'host_resources' in render:
-                renderItem.updateCPU(render['host_resources']['cpu_user'])
-                renderItem.updateMemory(render['host_resources']['mem_total_mb'] - render['host_resources']['mem_free_mb'], render['host_resources']['mem_total_mb'])
-                renderItem.updateUsers(render['host_resources']['logged_in_users'])
-            else:
-                renderItem.updateCPU(0)
+            if renderItem:
+                if 'host_resources' in render:
+                    renderItem.updateCPU(render['host_resources']['cpu_user'])
+                    renderItem.updateMemory(render['host_resources']['mem_total_mb'] - render['host_resources']['mem_free_mb'], render['host_resources']['mem_total_mb'])
+                    renderItem.updateUsers(render['host_resources']['logged_in_users'])
+                else:
+                    renderItem.updateCPU(0)
 
     def selectProjectFilter(self, action):
         self.filterJobs()

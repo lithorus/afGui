@@ -27,10 +27,14 @@ class Multiselect(QtGui.QToolButton):
         Update the Choices
         @param choices: List of choices
         '''
-        self.choiceMenu.clear()
+        oldChoices = []
+        for action in self.choiceMenu.actions():
+            oldChoices.append(action.text())
+        # self.choiceMenu.clear()
         for choice in choices:
-            action = self.choiceMenu.addAction(choice)
-            action.setCheckable(True)
+            if choice not in oldChoices:
+                action = self.choiceMenu.addAction(choice)
+                action.setCheckable(True)
 
     def setChoice(self, choice, checked):
         for action in self.choiceMenu.actions():
