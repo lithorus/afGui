@@ -3,10 +3,10 @@ Created on 6 Nov 2017
 
 @author: jimmy
 '''
-from PySide import QtGui
+from PySide2 import QtWidgets
 
 
-class Multiselect(QtGui.QToolButton):
+class Multiselect(QtWidgets.QToolButton):
     '''
     classdocs
     '''
@@ -17,9 +17,9 @@ class Multiselect(QtGui.QToolButton):
         '''
         super(Multiselect, self).__init__()
         self.setText(title)
-        self.choiceMenu = QtGui.QMenu(self)
+        self.choiceMenu = QtWidgets.QMenu(self)
         self.setMenu(self.choiceMenu)
-        self.setPopupMode(QtGui.QToolButton.MenuButtonPopup)
+        self.setPopupMode(QtWidgets.QToolButton.MenuButtonPopup)
         self.clicked.connect(self.showMenu)
 
     def updateChoices(self, choices):

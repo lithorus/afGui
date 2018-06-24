@@ -5,10 +5,9 @@ import re
 import sys
 import datetime
 import multiselect
+import time
 
-os.environ['QT_PREFERRED_BINDING'] = os.pathsep.join(['PySide', 'PyQt4'])
-
-from Qt import QtWidgets, QtCore, QtGui, load_ui  # @UnresolvedImport
+from PySide2 import QtWidgets, QtCore, QtGui, QtUiTools
 
 import af
 import cgruconfig
@@ -18,8 +17,8 @@ match = re.match(r"^(\d+)\.(\d+)\.(\d+)", config.Vars['CGRU_VERSION'])
 
 versionOK = False
 if match:
-    if match.group(1) >= 2:
-        if match .group(2) >= 3:
+    if int(match.group(1)) >= 2:
+        if int(match .group(2)) >= 3:
             versionOK = True
 
 if versionOK is not True:
@@ -27,6 +26,7 @@ if versionOK is not True:
     sys.exit()
 
 cmd = af.Cmd()
+startTime = time.time()
 
 
 class status(object):
@@ -68,13 +68,15 @@ class backgroundUpdate(QtCore.QThread):
     rendersUpdated = QtCore.Signal(object)
 
     def __init__(self, interval=2):
+        print(time.time() - startTime)
         QtCore.QThread.__init__(self)
         self.interval = interval
         self.monitorId = cmd.monitorRegister()
         self.stop = False
         cmd.monitorChangeUid(self.monitorId, 0)
         cmd.monitorSubscribe(self.monitorId, "jobs")
-        cmd.monitorSubscribe(self.monitorId, "renders")
+        # cmd.monitorSubscribe(self.monitorId, "renders")
+        print(time.time() - startTime)
 
     def unregister(self):
         cmd.monitorUnregister(self.monitorId)
@@ -109,19 +111,27 @@ class afGui(QtWidgets.QMainWindow):
 
     def __init__(self):
         self.app = QtWidgets.QApplication(sys.argv)
+        # super(QtWidgets.QMainWindow, self).__init__()
 
-        self.mainWindow = load_ui(fname="afGui.ui")
+        loader = QtUiTools.QUiLoader()
+        self.mainWindow = loader.load("afGui.ui")
+
+        self.mainWindow.jobTree
+        self.mainWindow.taskList
+        self.mainWindow.rendersTree
+        self.mainWindow.jobsToolbar
+        self.mainWindow.refreshJobTreeButton
+
         self.mainWindow.setWindowIcon(QtGui.QIcon('afanasy.png'))
         self.mainWindow.jobTree.setItemDelegate(self.progressDelegate())
-        fd = open("darkorange.stylesheet")
-        self.mainWindow.setStyleSheet(fd.read())
-        fd.close()
+
+        # fd = open("darkorange.stylesheet")
+        # self.mainWindow.setStyleSheet(fd.read())
+        # fd.close()
 
         self.userFilterMenu = multiselect.Multiselect('User(s)')
         self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.userFilterMenu)
         self.userFilterMenu.triggered.connect(self.selectUserFilter)
-        # self.userFilterMenu.updateChoices(['all', 'jimmy', 'evelina', 'olivia'])
-        # self.userFilterMenu.setChoice('jimmy', True)
 
         self.projectFilterMenu = multiselect.Multiselect('Project(s)')
         self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.projectFilterMenu)
@@ -134,7 +144,7 @@ class afGui(QtWidgets.QMainWindow):
         self.updateJobList()
         self.mainWindow.jobTree.setSortingEnabled(True)
         self.mainWindow.jobTree.setColumnWidth(0, 200)
-        # self.mainWindow.jobTree.sortItems(0, QtCore.Qt.AscendingOrder)
+        self.mainWindow.jobTree.sortItems(0, QtCore.Qt.AscendingOrder)
 
         self.mainWindow.refreshJobTreeButton.clicked.connect(self.refreshButton)
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectItem)
@@ -162,14 +172,13 @@ class afGui(QtWidgets.QMainWindow):
 
         refresher.start()
         self.app.exec_()
-
         for thread in self.threads:
             print('thing')
             thread.stop = True
             thread.wait()
 
     def openTaskMenu(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         skipTaskAction = menu.addAction("Skip")
         skipTaskAction.triggered.connect(self.skipTaskActionEvent)
@@ -179,7 +188,7 @@ class afGui(QtWidgets.QMainWindow):
         menu.exec_(self.mainWindow.taskList.mapToGlobal(position))
 
     def openJobMenu(self, position):
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         # selectedJobItems = self.mainWindow.jobTree.selectedItems()
 
@@ -257,7 +266,7 @@ class afGui(QtWidgets.QMainWindow):
         def paint(self, painter, option, index):
             if index.column() == 3:
                 if index.data() is not None:
-                    progress = int(index.data())
+                    progress = float(index.data())
                     progressBarOption = QtWidgets.QStyleOptionProgressBar()
                     progressBarOption.rect = option.rect
                     progressBarOption.minimum = 0
@@ -265,7 +274,7 @@ class afGui(QtWidgets.QMainWindow):
                     progressBarOption.progress = progress
                     progressBarOption.text = "%d%%" % (progress)
                     progressBarOption.textVisible = True
-                    QtWidgets.QApplication.style().drawControl(QtGui.QStyle.CE_ProgressBar, progressBarOption, painter)
+                    QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_ProgressBar, progressBarOption, painter)
             else:
                 QtWidgets.QStyledItemDelegate.paint(self, painter, option, index)
 
@@ -341,7 +350,7 @@ class afGui(QtWidgets.QMainWindow):
         def restart(self, taskIds=[]):
             cmd.setBlockState(self.jobId, self.block['block_num'], 'restart', taskIds, True)
 
-    class renderWidget(QtGui.QTreeWidgetItem):
+    class renderWidget(QtWidgets.QTreeWidgetItem):
         renderId = None
         totalCapacity = 0
 
@@ -420,6 +429,7 @@ class afGui(QtWidgets.QMainWindow):
                     if projectItem is None:
                         projectItem = self.projectItem(jobItem.projectName)
                         self.mainWindow.jobTree.addTopLevelItem(projectItem)
+                        projectItem.setFirstColumnSpanned(True)
                         self.projectList.append(jobItem.projectName)
                     projectItem.addChild(jobItem)
                     jobItem.setExpanded(isExpanded)
@@ -477,7 +487,7 @@ class afGui(QtWidgets.QMainWindow):
         jobProgress = cmd.getJobProgress(jobId, True)
         i = 0
         for item in jobProgress['progress'][blockNum]:
-            taskItem = QtGui.QTreeWidgetItem(self.mainWindow.taskList)
+            taskItem = QtWidgets.QTreeWidgetItem(self.mainWindow.taskList)
             taskItem.setText(0, "Task %d" % (i + ff))
             taskItem.setText(1, item['state'])
             taskItem.setData(0, QtCore.Qt.UserRole, i)
@@ -574,7 +584,6 @@ class afGui(QtWidgets.QMainWindow):
                         jobItem.setHidden(True)
             else:
                 projectItem.setHidden(True)
-        pass
 
 
 if __name__ == "__main__":
