@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>Frame</class>
+ <widget class="QFrame" name="Frame">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1245</width>
-    <height>555</height>
+    <width>1336</width>
+    <height>391</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>afGui</string>
+   <string>Frame</string>
   </property>
   <property name="styleSheet">
    <string notr="true">QGroupBox {
@@ -497,361 +497,203 @@ QHeaderView::section {
 
 </string>
   </property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout" stretch="0">
-    <property name="spacing">
-     <number>0</number>
-    </property>
-    <property name="leftMargin">
-     <number>0</number>
-    </property>
-    <property name="topMargin">
-     <number>0</number>
-    </property>
-    <property name="rightMargin">
-     <number>0</number>
-    </property>
-    <property name="bottomMargin">
-     <number>0</number>
-    </property>
-    <item>
-     <widget class="QTabWidget" name="tabWidget">
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="jobsTab">
-       <attribute name="title">
-        <string>Jobs</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,1,0">
+  <property name="frameShape">
+   <enum>QFrame::StyledPanel</enum>
+  </property>
+  <property name="frameShadow">
+   <enum>QFrame::Raised</enum>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
+   <item>
+    <widget class="QGroupBox" name="blockGroup">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="title">
+      <string>Block Details</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="6" column="0" colspan="2">
+       <spacer name="verticalSpacer_4">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>1</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Status</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLabel" name="blockDependMaskValue">
+        <property name="text">
+         <string>Block Depend Mask Value</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Name</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="blockStatusValue">
+        <property name="text">
+         <string>Block Status Value</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Tasks</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Errors</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QProgressBar" name="blockProgressValue">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="value">
+         <number>24</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="blockTasksValue">
+        <property name="text">
+         <string>Block Tasks Value</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLabel" name="blockErrorsValue">
+        <property name="text">
+         <string>Block Errors Value</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_10">
+        <property name="text">
+         <string>Depend Mask</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="blockNameValue">
+        <property name="text">
+         <string>Block Name Value</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="framesGroup">
+     <property name="title">
+      <string>Frames</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QTreeWidget" name="taskList">
+        <property name="minimumSize">
+         <size>
+          <width>350</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>350</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="contextMenuPolicy">
+         <enum>Qt::CustomContextMenu</enum>
+        </property>
+        <property name="alternatingRowColors">
+         <bool>true</bool>
+        </property>
+        <property name="selectionMode">
+         <enum>QAbstractItemView::ExtendedSelection</enum>
+        </property>
+        <property name="indentation">
+         <number>0</number>
+        </property>
+        <property name="itemsExpandable">
+         <bool>false</bool>
+        </property>
+        <property name="sortingEnabled">
+         <bool>true</bool>
+        </property>
+        <attribute name="headerShowSortIndicator" stdset="0">
+         <bool>true</bool>
+        </attribute>
+        <column>
+         <property name="text">
+          <string>Name</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>State</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Time</string>
+         </property>
+        </column>
         <item>
-         <layout class="QHBoxLayout" name="jobsToolbar">
-          <item>
-           <widget class="QToolButton" name="refreshJobTreeButton">
-            <property name="text">
-             <string>Refresh</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="label_15">
-            <property name="text">
-             <string>Filters</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
+         <property name="text">
+          <string>bf</string>
+         </property>
         </item>
         <item>
-         <widget class="QTreeWidget" name="jobTree">
-          <property name="minimumSize">
-           <size>
-            <width>699</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="contextMenuPolicy">
-           <enum>Qt::CustomContextMenu</enum>
-          </property>
-          <property name="indentation">
-           <number>12</number>
-          </property>
-          <property name="uniformRowHeights">
-           <bool>true</bool>
-          </property>
-          <column>
-           <property name="text">
-            <string>Name</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>User</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>State</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Progress</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Capacity</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Start</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>End</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Length</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Time Created</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Time Started</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Time Done</string>
-           </property>
-          </column>
-          <item>
-           <property name="text">
-            <string>Test job</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <item>
-            <property name="text">
-             <string>Test Block</string>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-            <property name="text">
-             <string/>
-            </property>
-           </item>
-          </item>
-         </widget>
+         <property name="text">
+          <string>789</string>
+         </property>
         </item>
         <item>
-         <widget class="QFrame" name="detailsFrame">
-          <property name="minimumSize">
-           <size>
-            <width>600</width>
-            <height>0</height>
-           </size>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_2" stretch=""/>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="rendersTab">
-       <attribute name="title">
-        <string>Renders</string>
-       </attribute>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QTreeWidget" name="rendersTree">
-          <column>
-           <property name="text">
-            <string>Name</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>State</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Capacity</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>CPU</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Memory</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Swap</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Network</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>HDD</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>OS</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>User(s)</string>
-           </property>
-          </column>
-          <column>
-           <property name="text">
-            <string>Priority</string>
-           </property>
-          </column>
-          <item>
-           <property name="text">
-            <string>render001</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string>40</string>
-           </property>
-           <property name="text">
-            <string>128GB</string>
-           </property>
-           <property name="text">
-            <string>64GB</string>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-          </item>
-         </widget>
+         <property name="text">
+          <string>56</string>
+         </property>
         </item>
         <item>
-         <widget class="QGroupBox" name="groupBox_2">
-          <property name="title">
-           <string>Render Details</string>
-          </property>
-          <layout class="QFormLayout" name="formLayout">
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_13">
-             <property name="text">
-              <string>Name</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>Name Value</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
+         <property name="text">
+          <string>132</string>
+         </property>
         </item>
-       </layout>
-      </widget>
-     </widget>
-    </item>
-   </layout>
-  </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1245</width>
-     <height>19</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QStatusBar" name="statusbar">
-   <property name="sizeGripEnabled">
-    <bool>true</bool>
-   </property>
-  </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>

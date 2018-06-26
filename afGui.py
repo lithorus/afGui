@@ -102,7 +102,7 @@ class backgroundUpdate(QtCore.QThread):
         self.unregister()
 
 
-class afGui(QtWidgets.QMainWindow):
+class afGui():
     projectList = []
     userList = []
     jobList = {}
@@ -115,9 +115,11 @@ class afGui(QtWidgets.QMainWindow):
 
         loader = QtUiTools.QUiLoader()
         self.mainWindow = loader.load("afGui.ui")
+        self.blockDetails = loader.load("blockDetails.ui")
+        self.jobDetails = loader.load("jobDetails.ui")
 
         self.mainWindow.jobTree
-        self.mainWindow.taskList
+        self.blockDetails.taskList
         self.mainWindow.rendersTree
         self.mainWindow.jobsToolbar
         self.mainWindow.refreshJobTreeButton
@@ -150,15 +152,13 @@ class afGui(QtWidgets.QMainWindow):
         self.mainWindow.jobTree.itemSelectionChanged.connect(self.selectItem)
 
         self.mainWindow.jobTree.customContextMenuRequested.connect(self.openJobMenu)
-        self.mainWindow.taskList.customContextMenuRequested.connect(self.openTaskMenu)
+        self.blockDetails.taskList.customContextMenuRequested.connect(self.openTaskMenu)
 
         self.mainWindow.rendersTree.clear()
         self.updateRendersList()
 
         self.clearJobDetails()
         self.clearBlockDetails()
-
-        self.mainWindow.taskList.clear()
 
         self.mainWindow.show()
 
@@ -185,7 +185,7 @@ class afGui(QtWidgets.QMainWindow):
         restartTaskAction = menu.addAction("Restart")
         restartTaskAction.triggered.connect(self.restartTaskActionEvent)
 
-        menu.exec_(self.mainWindow.taskList.mapToGlobal(position))
+        menu.exec_(self.blockDetails.taskList.mapToGlobal(position))
 
     def openJobMenu(self, position):
         menu = QtWidgets.QMenu()
@@ -246,7 +246,7 @@ class afGui(QtWidgets.QMainWindow):
     def skipTaskActionEvent(self):
         selectedBlock = self.mainWindow.jobTree.currentItem()
         taskIds = []
-        selectedTaskItems = self.mainWindow.taskList.selectedItems()
+        selectedTaskItems = self.blockDetails.taskList.selectedItems()
         for taskItem in selectedTaskItems:
             taskIds.append(taskItem.data(0, QtCore.Qt.UserRole))
         selectedBlock.skip(taskIds)
@@ -254,7 +254,7 @@ class afGui(QtWidgets.QMainWindow):
     def restartTaskActionEvent(self):
         selectedBlock = self.mainWindow.jobTree.currentItem()
         taskIds = []
-        selectedTaskItems = self.mainWindow.taskList.selectedItems()
+        selectedTaskItems = self.blockDetails.taskList.selectedItems()
         for taskItem in selectedTaskItems:
             taskIds.append(taskItem.data(0, QtCore.Qt.UserRole))
         selectedBlock.restart(taskIds)
@@ -391,7 +391,7 @@ class afGui(QtWidgets.QMainWindow):
         if ids is None:
             self.jobList = {}
             self.mainWindow.jobTree.clear()
-        newJobList = self.cmd.getJobList(True, ids)
+        newJobList = self.cmd.getJobList(verbose=False, ids=ids)
         if newJobList:
             for job in newJobList:
                 if job['user_name'] not in ['afadmin']:
@@ -430,6 +430,7 @@ class afGui(QtWidgets.QMainWindow):
                         projectItem = self.projectItem(jobItem.projectName)
                         self.mainWindow.jobTree.addTopLevelItem(projectItem)
                         projectItem.setFirstColumnSpanned(True)
+                        projectItem.setExpanded(True)
                         self.projectList.append(jobItem.projectName)
                     projectItem.addChild(jobItem)
                     jobItem.setExpanded(isExpanded)
@@ -449,7 +450,6 @@ class afGui(QtWidgets.QMainWindow):
         if selectedItems:
             selectedItem = selectedItems[0]
             jobId = selectedItem.data(0, QtCore.Qt.UserRole)
-            self.mainWindow.taskList.clear()
             if type(selectedItem) == afGui.blockItem:
                 ''' Block '''
                 jobItem = selectedItem.parent()
@@ -470,24 +470,31 @@ class afGui(QtWidgets.QMainWindow):
             self.clearBlockDetails()
 
     def clearBlockDetails(self):
-        self.mainWindow.blockNameValue.setText('')
-        self.mainWindow.blockStatusValue.setText('')
-        self.mainWindow.blockTasksValue.setText('')
-        self.mainWindow.blockErrorsValue.setText('')
-        self.mainWindow.blockDependMaskValue.setText('')
-        self.mainWindow.blockProgressValue.setValue(0)
+        # TODO: Replace with new code
+        self.blockDetails.blockNameValue.setText('')
+        self.blockDetails.blockStatusValue.setText('')
+        self.blockDetails.blockTasksValue.setText('')
+        self.blockDetails.blockErrorsValue.setText('')
+        self.blockDetails.blockDependMaskValue.setText('')
+        self.blockDetails.blockProgressValue.setValue(0)
+        self.blockDetails.taskList.clear()
 
     def updateBlockDetails(self, jobId, blockNum):
-        jobDetails = self.cmd.getJobInfo(jobId, True)[0]
+        self.jobDetails.layout().addWidget(self.jobDetails.jobGroup)
+        self.mainWindow.detailsFrame.layout().addWidget(self.blockDetails.blockGroup)
+        self.mainWindow.detailsFrame.layout().addWidget(self.blockDetails.framesGroup)
+        self.mainWindow.detailsFrame.layout().setStretch(0, 1)
+        # TODO: Replace with new code
+        jobDetails = self.cmd.getJobInfo(jobId, verbose=False)[0]
         blockDetails = jobDetails['blocks'][blockNum]
         # print(blockDetails)
         ff = blockDetails['frame_first']
         fpt = blockDetails['frames_per_task']
         increment = blockDetails['frames_inc']
-        jobProgress = cmd.getJobProgress(jobId, True)
+        jobProgress = cmd.getJobProgress(jobId, verbose=False)
         i = 0
         for item in jobProgress['progress'][blockNum]:
-            taskItem = QtWidgets.QTreeWidgetItem(self.mainWindow.taskList)
+            taskItem = QtWidgets.QTreeWidgetItem(self.blockDetails.taskList)
             taskItem.setText(0, "Task %d" % (i + ff))
             taskItem.setText(1, item['state'])
             taskItem.setData(0, QtCore.Qt.UserRole, i)
@@ -497,47 +504,53 @@ class afGui(QtWidgets.QMainWindow):
                 duration = timeDone - timeStarted
                 taskItem.setText(2, str(datetime.timedelta(seconds=duration)))
             i += 1
-        self.mainWindow.taskList.resizeColumnToContents(0)
-        self.mainWindow.taskList.resizeColumnToContents(1)
-        self.mainWindow.taskList.resizeColumnToContents(2)
+        self.blockDetails.taskList.resizeColumnToContents(0)
+        self.blockDetails.taskList.resizeColumnToContents(1)
+        self.blockDetails.taskList.resizeColumnToContents(2)
         blockStatus = status(blockDetails['st'])
-        self.mainWindow.blockNameValue.setText(blockDetails['name'])
-        self.mainWindow.blockStatusValue.setText(blockDetails['state'])
-        self.mainWindow.blockTasksValue.setText(str(blockDetails['tasks_num']))
-        self.mainWindow.blockErrorsValue.setText('')
-        self.mainWindow.blockDependMaskValue.setText('')
-        self.mainWindow.blockProgressValue.setValue(blockDetails.get('p_percentage', 0))
+        self.blockDetails.blockNameValue.setText(blockDetails['name'])
+        self.blockDetails.blockStatusValue.setText(blockDetails['state'])
+        self.blockDetails.blockTasksValue.setText(str(blockDetails['tasks_num']))
+        self.blockDetails.blockErrorsValue.setText('')
+        self.blockDetails.blockDependMaskValue.setText('')
+        self.blockDetails.blockProgressValue.setValue(blockDetails.get('p_percentage', 0))
 
     def clearJobDetails(self):
-        self.mainWindow.jobNameValue.setText('')
-        self.mainWindow.jobStatusValue.setText('')
-        self.mainWindow.jobTasksValue.setText('')
-        self.mainWindow.jobErrorsValue.setText('')
-        self.mainWindow.jobDependMaskValue.setText('')
-        self.mainWindow.jobMaximumRunningValue.setText('')
-        self.mainWindow.jobMaximumRunningPerHostValue.setText('')
+        # TODO: Replace with new code
+        self.jobDetails.jobNameValue.setText('')
+        self.jobDetails.jobStatusValue.setText('')
+        self.jobDetails.jobTasksValue.setText('')
+        self.jobDetails.jobErrorsValue.setText('')
+        self.jobDetails.jobDependMaskValue.setText('')
+        self.jobDetails.jobMaximumRunningValue.setText('')
+        self.jobDetails.jobMaximumRunningPerHostValue.setText('')
 
     def updateJobDetails(self, jobId):
-        jobDetails = self.cmd.getJobInfo(jobId, True)[0]
+        self.blockDetails.layout().addWidget(self.blockDetails.blockGroup)
+        self.blockDetails.layout().addWidget(self.blockDetails.framesGroup)
+        self.mainWindow.detailsFrame.layout().addWidget(self.jobDetails.jobGroup)
+        self.mainWindow.detailsFrame.layout().setStretch(0, 1)
+        # TODO: Replace with new code
+        jobDetails = self.cmd.getJobInfo(jobId, verbose=False)[0]
         jobStatus = status(jobDetails['st'])
         # pprint.pprint(jobDetails)
-        self.mainWindow.jobNameValue.setText(jobDetails['name'])
-        self.mainWindow.jobStatusValue.setText(jobDetails['state'])
+        self.jobDetails.jobNameValue.setText(jobDetails['name'])
+        self.jobDetails.jobStatusValue.setText(jobDetails['state'])
         tasks = 0
         for block in jobDetails['blocks']:
             tasks += block['tasks_num']
-        self.mainWindow.jobTasksValue.setText("%d/%d" % (len(jobDetails['blocks']), tasks))
-        self.mainWindow.jobErrorsValue.setText("%d" % (0))
-        self.mainWindow.jobDependMaskValue.setText(jobDetails.get('depend_mask', ''))
-        self.mainWindow.jobMaximumRunningValue.setText("%d" % jobDetails.get('max_running_tasks', -1))
-        self.mainWindow.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
+        self.jobDetails.jobTasksValue.setText("%d/%d" % (len(jobDetails['blocks']), tasks))
+        self.jobDetails.jobErrorsValue.setText("%d" % (0))
+        self.jobDetails.jobDependMaskValue.setText(jobDetails.get('depend_mask', ''))
+        self.jobDetails.jobMaximumRunningValue.setText("%d" % jobDetails.get('max_running_tasks', -1))
+        self.jobDetails.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
         # print(jobDetails)
 
     def updateRendersList(self, rids=None):
         rendersList = []
         if rids is not None:
             for rid in rids:
-                rendersList.extend(cmd.renderGetId(rid)['renders'])
+                rendersList.extend(self.cmd.renderGetId(rid)['renders'])
         else:
             rendersList = cmd.renderGetList()
         if rendersList:
