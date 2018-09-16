@@ -75,7 +75,7 @@ class backgroundUpdate(QtCore.QThread):
         self.stop = False
         cmd.monitorChangeUid(self.monitorId, 0)
         cmd.monitorSubscribe(self.monitorId, "jobs")
-        # cmd.monitorSubscribe(self.monitorId, "renders")
+        cmd.monitorSubscribe(self.monitorId, "renders")
         print(time.time() - startTime)
 
     def unregister(self):
@@ -92,6 +92,9 @@ class backgroundUpdate(QtCore.QThread):
                     self.jobsUpdated.emit(jobsChanged)
                 if "renders_change" in events:
                     rendersChanged = events.get("renders_change")
+                    self.rendersUpdated.emit(rendersChanged)
+                if "renders_add" in events:
+                    rendersChanged = events.get("renders_add")
                     self.rendersUpdated.emit(rendersChanged)
                 if "jobs_del" in events:
                     jobsDeleted = events.get("jobs_del")
@@ -476,7 +479,6 @@ class afGui():
         self.blockDetails.blockTasksValue.setText('')
         self.blockDetails.blockErrorsValue.setText('')
         self.blockDetails.blockDependMaskValue.setText('')
-        self.blockDetails.blockProgressValue.setValue(0)
         self.blockDetails.taskList.clear()
 
     def updateBlockDetails(self, jobId, blockNum):
@@ -513,7 +515,6 @@ class afGui():
         self.blockDetails.blockTasksValue.setText(str(blockDetails['tasks_num']))
         self.blockDetails.blockErrorsValue.setText('')
         self.blockDetails.blockDependMaskValue.setText('')
-        self.blockDetails.blockProgressValue.setValue(blockDetails.get('p_percentage', 0))
 
     def clearJobDetails(self):
         # TODO: Replace with new code
