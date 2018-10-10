@@ -163,7 +163,7 @@ class afGui:
         refresher.jobsUpdated.connect(self.updateJobList)
         refresher.jobsDeleted.connect(self.deleteJobs)
         refresher.rendersUpdated.connect(self.updateRendersList)
-        # TODO: refresher.resourcesUpdated.connect(self.updateResources)
+        refresher.resourcesUpdated.connect(self.updateResources)
         # refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
 
@@ -522,11 +522,9 @@ class afGui:
     def updateRendersList(self, rids=None):
         rendersList = []
         if rids is not None:
-            for rid in rids:
-                rendersList.extend(self.cmd.renderGetId(rid)['renders'])
+            rendersList = afcmd.getRenderList(ids=rids)
         else:
             rendersList = afcmd.getRenderList()
-            pass
         if rendersList:
             for render in rendersList:
                 renderItem = self.renderList.get(render.id, self.renderWidget(render.id, render.name))
