@@ -658,6 +658,11 @@ QHeaderView::section {
           <string>Time</string>
          </property>
         </column>
+        <column>
+         <property name="text">
+          <string>Render</string>
+         </property>
+        </column>
         <item>
          <property name="text">
           <string>New Item</string>

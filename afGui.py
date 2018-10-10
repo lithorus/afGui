@@ -1,6 +1,5 @@
 #!/usr/bin/python2.7
 
-import os
 import re
 import sys
 import datetime
@@ -9,7 +8,7 @@ import time
 
 from PySide2 import QtWidgets, QtCore, QtGui, QtUiTools
 
-import af
+import afcmd
 import cgruconfig
 
 config = cgruconfig.Config()
@@ -25,7 +24,6 @@ if versionOK is not True:
     print("Wrong version of CGRU")
     sys.exit()
 
-cmd = af.Cmd()
 startTime = time.time()
 
 
@@ -71,22 +69,18 @@ class backgroundUpdate(QtCore.QThread):
         print(time.time() - startTime)
         QtCore.QThread.__init__(self)
         self.interval = interval
-        self.monitorId = cmd.monitorRegister()
+        self.monitor = afcmd.Monitor()
+        self.monitor.changeUid(0)
+        self.monitor.subscribe(afcmd.Monitor.WatchType.jobs)
+        self.monitor.subscribe(afcmd.Monitor.WatchType.renders)
         self.stop = False
-        cmd.monitorChangeUid(self.monitorId, 0)
-        cmd.monitorSubscribe(self.monitorId, "jobs")
-        cmd.monitorSubscribe(self.monitorId, "renders")
         print(time.time() - startTime)
-
-    def unregister(self):
-        cmd.monitorUnregister(self.monitorId)
 
     def run(self):
         while self.stop is not True:
-            result = cmd.monitorEvents(self.monitorId)
+            result = self.monitor.events()
             events = result.get("events")
             if events is not None:
-                print(events)
                 if "jobs_change" in events:
                     jobsChanged = events.get("jobs_change")
                     self.jobsUpdated.emit(jobsChanged)
@@ -99,13 +93,13 @@ class backgroundUpdate(QtCore.QThread):
                 if "jobs_del" in events:
                     jobsDeleted = events.get("jobs_del")
                     self.jobsDeleted.emit(jobsDeleted)
-            resources = cmd.renderGetResources()
+            resources = afcmd.getRenderResources()
             self.resourcesUpdated.emit(resources)
             self.sleep(self.interval)
-        self.unregister()
+        del(self.monitor)
 
 
-class afGui():
+class afGui:
     projectList = []
     userList = []
     jobList = {}
@@ -142,7 +136,7 @@ class afGui():
         self.mainWindow.jobsToolbar.insertWidget(self.mainWindow.jobsToolbar.count() - 1, self.projectFilterMenu)
         self.projectFilterMenu.triggered.connect(self.selectProjectFilter)
 
-        self.cmd = af.Cmd()
+        # self.cmd = af.Cmd()
         self.mainWindow.jobTree.clear()
         self.mainWindow.jobTree.setSortingEnabled(False)
         self.mainWindow.jobTree.resizeColumnToContents(0)
@@ -169,7 +163,7 @@ class afGui():
         refresher.jobsUpdated.connect(self.updateJobList)
         refresher.jobsDeleted.connect(self.deleteJobs)
         refresher.rendersUpdated.connect(self.updateRendersList)
-        refresher.resourcesUpdated.connect(self.updateResources)
+        # TODO: refresher.resourcesUpdated.connect(self.updateResources)
         # refresher.setTerminationEnabled(True)
         self.threads.append(refresher)
 
@@ -193,8 +187,6 @@ class afGui():
     def openJobMenu(self, position):
         menu = QtWidgets.QMenu()
 
-        # selectedJobItems = self.mainWindow.jobTree.selectedItems()
-
         if type(self.mainWindow.jobTree.currentItem()) == self.jobItem:
             startJobAction = menu.addAction("Start")
             startJobAction.triggered.connect(self.startJobActionEvent)
@@ -217,23 +209,22 @@ class afGui():
     def startJobActionEvent(self):
         selectedJobItems = self.mainWindow.jobTree.selectedItems()
         for jobItem in selectedJobItems:
-            self.cmd.setJobState(jobItem.jobId, "start")
+            jobItem.job.start()
 
     def pauseJobActionEvent(self):
         selectedJobItems = self.mainWindow.jobTree.selectedItems()
         for jobItem in selectedJobItems:
-            self.cmd.setJobState(jobItem.jobId, "pause")
+            jobItem.job.pause()
 
     def stopJobActionEvent(self):
         selectedJobItems = self.mainWindow.jobTree.selectedItems()
         for jobItem in selectedJobItems:
-            self.cmd.setJobState(jobItem.jobId, "stop")
+            jobItem.job.stop()
 
     def deleteJobActionEvent(self):
         selectedJobItems = self.mainWindow.jobTree.selectedItems()
         for jobItem in selectedJobItems:
-            jobId = jobItem.data(0, QtCore.Qt.UserRole)
-            self.cmd.deleteJobById(jobId)
+            jobItem.job.delete()
             jobItem.parent().removeChild(jobItem)
 
     def skipBlockActionEvent(self):
@@ -291,23 +282,22 @@ class afGui():
     class jobItem(QtWidgets.QTreeWidgetItem):
         def __init__(self, job):
             super(afGui.jobItem, self).__init__()
-            self.projectName = job.get('project', '')
-            self.jobId = job['id']
+            self.projectName = job.project
+            self.job = job
             self.parentWidget = None
-            self.setText(0, "%s (%d)" % (job['name'], len(job['blocks'])))
-            self.setText(1, job['user_name'])
-            self.setState(job['state'].strip())
-            self.setProgress(job.get('p_percentage', 0))
+            self.setText(0, "%s (%d)" % (job.name, len(job.blocks)))
+            self.setText(1, job.user_name)
+            self.setState(job.state.strip())
+            self.setProgress(job.p_percentage)
 
-            dt = datetime.datetime.fromtimestamp(job['time_creation'])
+            dt = datetime.datetime.fromtimestamp(job.time_creation)
             self.setText(8, dt.strftime("%Y-%m-%d %H:%M"))
 
-            self.setTimeStarted(job.get('time_started', None))
-            self.setTimeDone(job.get('time_done', None))
-            self.setData(0, QtCore.Qt.UserRole, job['id'])
+            self.setTimeStarted(job.time_started)
+            self.setTimeDone(job.time_done)
 
         def getUserName(self):
-            return self.text(1)
+            return self.job.user_name
 
         def setProgress(self, progress):
             self.setText(3, str(progress))
@@ -332,26 +322,26 @@ class afGui():
     class blockItem(jobItem):
         def __init__(self, block, job):
             super(afGui.blockItem, self).__init__(job)
-            self.setText(0, block['name'])
-            self.setText(1, job['user_name'])
+            self.setText(0, block.name)
+            self.setText(1, job.user_name)
             self.block = block
-            self.jobId = job['id']
-            self.setState(block['state'].strip())
-            self.setProgress(block.get('p_percentage', 0))
+            self.jobId = job.id
+            self.setState(block.state.strip())
+            self.setProgress(block.p_percentage)
 
-            self.setText(4, str(block['capacity']))
-            self.setText(5, str(block['frame_first']))
-            self.setText(6, str(block['frame_last']))
-            self.setText(7, "%d/%d" % (block['frame_last'] - block['frame_first'] + 1, block['frames_inc']))
+            self.setText(4, str(block.capacity))
+            self.setText(5, str(block.frame_first))
+            self.setText(6, str(block.frame_last))
+            self.setText(7, "%d/%d" % (block.frame_last - block.frame_first + 1, block.frames_inc))
 
-            self.setData(1, QtCore.Qt.UserRole, block['block_num'])
+            self.setData(1, QtCore.Qt.UserRole, block.block_num)
             # blockProgress = jobProgress['progress'][block['block_num']]
 
         def skip(self, taskIds=[]):
-            cmd.setBlockState(self.jobId, self.block['block_num'], 'skip', taskIds, True)
+            self.block.skip(taskIds)
 
         def restart(self, taskIds=[]):
-            cmd.setBlockState(self.jobId, self.block['block_num'], 'restart', taskIds, True)
+            self.block.restart(taskIds)
 
     class renderWidget(QtWidgets.QTreeWidgetItem):
         renderId = None
@@ -394,25 +384,20 @@ class afGui():
         if ids is None:
             self.jobList = {}
             self.mainWindow.jobTree.clear()
-        newJobList = self.cmd.getJobList(verbose=False, ids=ids)
+        newJobList = afcmd.getJobList(ids=ids)
         if newJobList:
             for job in newJobList:
-                if job['user_name'] not in ['afadmin']:
-                    if job['user_name'] not in self.userList:
-                        self.userList.append(job['user_name'])
-                    blocksProgress = 0
-                    for block in job['blocks']:
-                        blocksProgress += block.get('p_percentage', 0)
-                    job['p_percentage'] = blocksProgress / len(job['blocks'])
+                if job.user_name not in ['afadmin']:
+                    if job.user_name not in self.userList:
+                        self.userList.append(job.user_name)
                     jobItem = self.jobItem(job)
-                    oldJob = self.jobList.get(job['id'])
-                    # jobProgress = self.cmd.getJobProgress(job['id'], True)
-                    for block in job['blocks']:
+                    for block in job.blocks:
                         blockItem = self.blockItem(block, job)
                         jobItem.addChild(blockItem)
                     projectItem = None
                     isExpanded = False
                     isSelected = False
+                    oldJob = self.jobList.get(job.id)
                     if oldJob:
                         projectItem = oldJob.parent()
                         isExpanded = oldJob.isExpanded()
@@ -438,7 +423,7 @@ class afGui():
                     projectItem.addChild(jobItem)
                     jobItem.setExpanded(isExpanded)
                     jobItem.setSelected(isSelected)
-                    self.jobList[job['id']] = jobItem
+                    self.jobList[job.id] = jobItem
         self.projectFilterMenu.updateChoices(self.projectList)
         self.userFilterMenu.updateChoices(self.userList)
         self.filterJobs()
@@ -452,17 +437,12 @@ class afGui():
         selectedItems = self.mainWindow.jobTree.selectedItems()
         if selectedItems:
             selectedItem = selectedItems[0]
-            jobId = selectedItem.data(0, QtCore.Qt.UserRole)
             if type(selectedItem) == afGui.blockItem:
                 ''' Block '''
-                jobItem = selectedItem.parent()
-                jobId = jobItem.data(0, QtCore.Qt.UserRole)
-                blockNum = selectedItem.data(1, QtCore.Qt.UserRole)
-                self.updateJobDetails(jobId)
-                self.updateBlockDetails(jobId, blockNum)
+                self.updateBlockDetails(selectedItem)
             elif type(selectedItem) == afGui.jobItem:
                 ''' Job '''
-                self.updateJobDetails(jobId)
+                self.updateJobDetails(selectedItem)
                 self.clearBlockDetails()
             else:
                 ''' Project '''
@@ -481,21 +461,18 @@ class afGui():
         self.blockDetails.blockDependMaskValue.setText('')
         self.blockDetails.taskList.clear()
 
-    def updateBlockDetails(self, jobId, blockNum):
+    def updateBlockDetails(self, blockItem):
         self.jobDetails.layout().addWidget(self.jobDetails.jobGroup)
         self.mainWindow.detailsFrame.layout().addWidget(self.blockDetails.blockGroup)
         self.mainWindow.detailsFrame.layout().addWidget(self.blockDetails.framesGroup)
         self.mainWindow.detailsFrame.layout().setStretch(0, 1)
-        # TODO: Replace with new code
-        jobDetails = self.cmd.getJobInfo(jobId, verbose=False)[0]
-        blockDetails = jobDetails['blocks'][blockNum]
-        # print(blockDetails)
-        ff = blockDetails['frame_first']
-        fpt = blockDetails['frames_per_task']
-        increment = blockDetails['frames_inc']
-        jobProgress = cmd.getJobProgress(jobId, verbose=False)
+        ff = blockItem.block.frame_first
+        fpt = blockItem.block.frames_per_task
+        increment = blockItem.block.frames_inc
+        jobProgress = blockItem.job.getProgress()
+        self.blockDetails.taskList.clear()
         i = 0
-        for item in jobProgress['progress'][blockNum]:
+        for item in jobProgress['progress'][blockItem.block.block_num]:
             taskItem = QtWidgets.QTreeWidgetItem(self.blockDetails.taskList)
             taskItem.setText(0, "Task %d" % (i + ff))
             taskItem.setText(1, item['state'])
@@ -505,14 +482,14 @@ class afGui():
             if timeDone and timeStarted:
                 duration = timeDone - timeStarted
                 taskItem.setText(2, str(datetime.timedelta(seconds=duration)))
-            i += 1
+            taskItem.setText(3, item.get('hst'))
+            i += increment
         self.blockDetails.taskList.resizeColumnToContents(0)
         self.blockDetails.taskList.resizeColumnToContents(1)
         self.blockDetails.taskList.resizeColumnToContents(2)
-        blockStatus = status(blockDetails['st'])
-        self.blockDetails.blockNameValue.setText(blockDetails['name'])
-        self.blockDetails.blockStatusValue.setText(blockDetails['state'])
-        self.blockDetails.blockTasksValue.setText(str(blockDetails['tasks_num']))
+        self.blockDetails.blockNameValue.setText(blockItem.block.name)
+        self.blockDetails.blockStatusValue.setText(blockItem.block.state)
+        self.blockDetails.blockTasksValue.setText(str(blockItem.block.tasks_num))
         self.blockDetails.blockErrorsValue.setText('')
         self.blockDetails.blockDependMaskValue.setText('')
 
@@ -526,26 +503,21 @@ class afGui():
         self.jobDetails.jobMaximumRunningValue.setText('')
         self.jobDetails.jobMaximumRunningPerHostValue.setText('')
 
-    def updateJobDetails(self, jobId):
+    def updateJobDetails(self, jobItem):
         self.blockDetails.layout().addWidget(self.blockDetails.blockGroup)
         self.blockDetails.layout().addWidget(self.blockDetails.framesGroup)
         self.mainWindow.detailsFrame.layout().addWidget(self.jobDetails.jobGroup)
         self.mainWindow.detailsFrame.layout().setStretch(0, 1)
-        # TODO: Replace with new code
-        jobDetails = self.cmd.getJobInfo(jobId, verbose=False)[0]
-        jobStatus = status(jobDetails['st'])
-        # pprint.pprint(jobDetails)
-        self.jobDetails.jobNameValue.setText(jobDetails['name'])
-        self.jobDetails.jobStatusValue.setText(jobDetails['state'])
+        self.jobDetails.jobNameValue.setText(jobItem.job.name)
+        self.jobDetails.jobStatusValue.setText(jobItem.job.state)
         tasks = 0
-        for block in jobDetails['blocks']:
-            tasks += block['tasks_num']
-        self.jobDetails.jobTasksValue.setText("%d/%d" % (len(jobDetails['blocks']), tasks))
+        for block in jobItem.job.blocks:
+            tasks += block.tasks_num
+        self.jobDetails.jobTasksValue.setText("%d/%d" % (len(jobItem.job.blocks), tasks))
         self.jobDetails.jobErrorsValue.setText("%d" % (0))
-        self.jobDetails.jobDependMaskValue.setText(jobDetails.get('depend_mask', ''))
-        self.jobDetails.jobMaximumRunningValue.setText("%d" % jobDetails.get('max_running_tasks', -1))
-        self.jobDetails.jobMaximumRunningPerHostValue.setText("%d" % jobDetails.get('max_running_tasks_per_host', -1))
-        # print(jobDetails)
+        self.jobDetails.jobDependMaskValue.setText(jobItem.job.depend_mask)
+        self.jobDetails.jobMaximumRunningValue.setText("%d" % jobItem.job.max_running_tasks)
+        self.jobDetails.jobMaximumRunningPerHostValue.setText("%d" % jobItem.job.max_running_tasks_per_host)
 
     def updateRendersList(self, rids=None):
         rendersList = []
@@ -553,20 +525,20 @@ class afGui():
             for rid in rids:
                 rendersList.extend(self.cmd.renderGetId(rid)['renders'])
         else:
-            rendersList = cmd.renderGetList()
+            rendersList = afcmd.getRenderList()
+            pass
         if rendersList:
             for render in rendersList:
-                renderItem = self.renderList.get(render['id'], self.renderWidget(render['id'], render['name']))
+                renderItem = self.renderList.get(render.id, self.renderWidget(render.id, render.name))
                 if renderItem:
-                    renderItem.updateState(render['state'])
-                    renderItem.setCapacity(render['host']['capacity'])
-                    renderItem.updateCapacity(render['capacity_used'])
-                    self.renderList[render['id']] = renderItem
+                    renderItem.updateState(render.state)
+                    renderItem.setCapacity(render.host.get('capacity'))
+                    renderItem.updateCapacity(render.capacity_used)
+                    self.renderList[render.id] = renderItem
                     self.mainWindow.rendersTree.addTopLevelItem(renderItem)
 
     def updateResources(self, resources):
         for render in resources:
-            # print(render)
             renderItem = self.renderList.get(render['id'])
             if renderItem:
                 if 'host_resources' in render:
